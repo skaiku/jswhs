@@ -1,27 +1,34 @@
-import { readFile } from 'fs/promises';
 import schedule from 'node-schedule';
 import { DomainChecker } from './domainChecker.js';
 import { Notifier } from './notifier.js';
 import { WebInterface } from './webInterface.js';
+import { Utils } from './utils.js';
 
 let currentJob = null;
 
-async function loadConfig() {
-  const config = JSON.parse(await readFile(new URL('../config.json', import.meta.url)));
-  const domainsData = JSON.parse(await readFile(new URL('../domains.json', import.meta.url)));
-  return { config, domains: domainsData.domains };
-}
-
+/**
+ * Check all domains and send notifications if needed
+ * @returns {Promise<void>}
+ */
 async function checkDomains() {
   try {
-    const { config, domains } = await loadConfig();
+    const { config, domains } = await Utils.loadConfig();
     const checker = new DomainChecker(config.warningDays);
     const notifier = new Notifier(config.ntfy);
 
     console.log('Starting domain check...');
 
-    for (const domain of domains) {
+    const statusResults = [];
+
+    for (const domainObj of domains.domains) {
+      const domain = domainObj.domain;
       const result = await checker.checkDomain(domain);
+      
+      // Add description to the result
+      result.description = domainObj.description;
+      
+      // Add to status results
+      statusResults.push(result);
       
       if (result.error) {
         console.error(`Error checking ${domain}:`, result.error);
@@ -34,17 +41,25 @@ async function checkDomains() {
         await notifier.sendNotification(result);
       }
     }
+
+    // Save results to cache
+    await Utils.saveDomainStatusCache(statusResults);
+    
   } catch (error) {
     console.error('Error in checkDomains:', error);
   }
 }
 
+/**
+ * Update the schedule for domain checks
+ * @returns {Promise<void>}
+ */
 async function updateSchedule() {
   if (currentJob) {
     currentJob.cancel();
   }
   
-  const { config } = await loadConfig();
+  const { config } = await Utils.loadConfig();
   currentJob = schedule.scheduleJob(config.checkInterval, checkDomains);
   console.log('Schedule updated. Running on schedule:', config.checkInterval);
   

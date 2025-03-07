@@ -3,48 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Domain Checker Configuration</title>
+    <title>Domain Expiration Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Domain Checker Configuration</h1>
+        <header>
+            <h1>Domain Expiration Dashboard</h1>
+            <nav>
+                <a href="/config.html" class="btn-config">⚙️ Configuration</a>
+            </nav>
+        </header>
         
-        <section class="config-section">
-            <h2>Notification Settings</h2>
-            <div class="form-group">
-                <label for="ntfyUrl">Ntfy.sh URL:</label>
-                <input type="text" id="ntfyUrl" placeholder="https://ntfy.sh/your-topic">
-            </div>
-            <div class="form-group">
-                <label for="priority">Priority:</label>
-                <select id="priority">
-                    <option value="low">Low</option>
-                    <option value="default">Default</option>
-                    <option value="high">High</option>
-                </select>
-            </div>
-        </section>
-
-        <section class="config-section">
-            <h2>Check Settings</h2>
-            <div class="form-group">
-                <label for="checkInterval">Check Interval (cron):</label>
-                <input type="text" id="checkInterval" placeholder="0 0 * * *">
-            </div>
-            <div class="form-group">
-                <label for="warningDays">Warning Days:</label>
-                <input type="number" id="warningDays" min="1" max="90">
-            </div>
-        </section>
-
-        <section class="config-section">
-            <h2>Domains</h2>
-            <div id="domains-list"></div>
-            <button onclick="addDomain()" class="btn-add">Add Domain</button>
-        </section>
-
-        <button onclick="saveConfig()" class="btn-save">Save Configuration</button>
+        <div id="dashboard" class="dashboard">
+            <!-- Domain cards will be inserted here -->
+        </div>
     </div>
     <script src="script.js"></script>
 </body>

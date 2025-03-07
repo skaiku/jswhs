@@ -41,4 +41,7 @@ pids
 
 # Config files that might contain sensitive data
 config.json
-domains.json 
+domains.json
+
+# Cache directory
+cache/ 

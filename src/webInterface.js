@@ -1,13 +1,20 @@
 import express from 'express';
-import { readFile, writeFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import bodyParser from 'body-parser';
 import { createServer } from 'http';
+import whois from 'whois-json';
+import { Utils } from './utils.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/**
+ * Class to provide web interface for configuration and status
+ */
 export class WebInterface {
+  /**
+   * @param {Function} onConfigUpdate - Callback to run when config is updated
+   */
   constructor(onConfigUpdate) {
     this.app = express();
     this.server = null;
@@ -24,12 +31,7 @@ export class WebInterface {
   setupRoutes() {
     this.app.get('/api/config', async (req, res) => {
       try {
-        const config = JSON.parse(
-          await readFile(new URL('../config.json', import.meta.url))
-        );
-        const domains = JSON.parse(
-          await readFile(new URL('../domains.json', import.meta.url))
-        );
+        const { config, domains } = await Utils.loadConfig();
         res.json({ config, domains });
       } catch (error) {
         res.status(500).json({ error: error.message });
@@ -38,16 +40,10 @@ export class WebInterface {
 
     this.app.post('/api/config', async (req, res) => {
       try {
+        /** @type {{config: import('./interfaces.js').AppConfig, domains: import('./interfaces.js').DomainsConfig}} */
         const { config, domains } = req.body;
         
-        await writeFile(
-          new URL('../config.json', import.meta.url),
-          JSON.stringify(config, null, 2)
-        );
-        await writeFile(
-          new URL('../domains.json', import.meta.url),
-          JSON.stringify(domains, null, 2)
-        );
+        await Utils.saveConfig(config, domains);
 
         if (this.onConfigUpdate) {
           await this.onConfigUpdate();
@@ -58,8 +54,33 @@ export class WebInterface {
         res.status(500).json({ error: error.message });
       }
     });
+
+    this.app.get('/api/domains/status', async (req, res) => {
+      try {
+        // Get status from cache instead of doing WHOIS queries
+        const statusData = await Utils.loadDomainStatusCache();
+        res.json(statusData);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get('/api/domains/:domain/whois', async (req, res) => {
+      try {
+        const result = await whois(req.params.domain);
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
   }
 
+  /**
+   * Start the web server
+   * @param {number} initialPort - Starting port to try
+   * @param {number} maxAttempts - Maximum number of ports to try
+   * @returns {Promise<number>} The port the server is running on
+   */
   async start(initialPort = 3000, maxAttempts = 10) {
     for (let port = initialPort; port < initialPort + maxAttempts; port++) {
       try {
@@ -92,6 +113,10 @@ export class WebInterface {
     }
   }
 
+  /**
+   * Stop the web server
+   * @returns {Promise<void>}
+   */
   async stop() {
     return new Promise((resolve) => {
       if (!this.server) {
