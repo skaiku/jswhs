@@ -1,0 +1,17 @@
+{
+  "name": "domain-checker",
+  "version": "1.0.0",
+  "description": "Domain expiration checker with push notifications",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2",
+    "node-schedule": "^2.1.1",
+    "whois-json": "^2.0.4",
+    "body-parser": "^1.20.2"
+  }
+} 

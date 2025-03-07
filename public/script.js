@@ -1,0 +1,78 @@
+let currentConfig = null;
+
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/config');
+        const data = await response.json();
+        currentConfig = data;
+        
+        // Fill in the form
+        document.getElementById('ntfyUrl').value = data.config.ntfy.url;
+        document.getElementById('priority').value = data.config.ntfy.priority;
+        document.getElementById('checkInterval').value = data.config.checkInterval;
+        document.getElementById('warningDays').value = data.config.warningDays;
+        
+        // Load domains
+        const domainsList = document.getElementById('domains-list');
+        domainsList.innerHTML = '';
+        data.domains.domains.forEach(domain => {
+            addDomainToList(domain);
+        });
+    } catch (error) {
+        console.error('Error loading config:', error);
+        alert('Error loading configuration');
+    }
+}
+
+function addDomain(domain = '') {
+    const domainEntry = document.createElement('div');
+    domainEntry.className = 'domain-entry';
+    domainEntry.innerHTML = `
+        <input type="text" class="domain-input" value="${domain}" placeholder="example.com">
+        <button onclick="this.parentElement.remove()" class="btn-remove">Remove</button>
+    `;
+    document.getElementById('domains-list').appendChild(domainEntry);
+}
+
+function addDomainToList(domain) {
+    addDomain(domain);
+}
+
+async function saveConfig() {
+    const config = {
+        ntfy: {
+            url: document.getElementById('ntfyUrl').value,
+            priority: document.getElementById('priority').value
+        },
+        checkInterval: document.getElementById('checkInterval').value,
+        warningDays: parseInt(document.getElementById('warningDays').value)
+    };
+
+    const domains = {
+        domains: Array.from(document.getElementsByClassName('domain-input'))
+            .map(input => input.value.trim())
+            .filter(domain => domain !== '')
+    };
+
+    try {
+        const response = await fetch('/api/config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ config, domains })
+        });
+
+        if (response.ok) {
+            alert('Configuration saved successfully');
+        } else {
+            throw new Error('Failed to save configuration');
+        }
+    } catch (error) {
+        console.error('Error saving config:', error);
+        alert('Error saving configuration');
+    }
+}
+
+// Load config when page loads
+document.addEventListener('DOMContentLoaded', loadConfig); 
