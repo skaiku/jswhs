@@ -1,10 +1,12 @@
 import express from 'express';
+import { readFile, writeFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import bodyParser from 'body-parser';
 import { createServer } from 'http';
 import whois from 'whois-json';
 import { Utils } from './utils.js';
+import { Logger } from './logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -21,82 +23,75 @@ export class WebInterface {
     this.onConfigUpdate = onConfigUpdate;
     this.setupMiddleware();
     this.setupRoutes();
+    Logger.debug('WebInterface initialized');
   }
 
   setupMiddleware() {
     this.app.use(bodyParser.json());
     this.app.use(express.static(join(__dirname, '../public')));
+    Logger.debug('WebInterface middleware set up');
   }
 
   setupRoutes() {
     this.app.get('/api/config', async (req, res) => {
       try {
+        Logger.debug('GET /api/config requested');
         const { config, domains } = await Utils.loadConfig();
         res.json({ config, domains });
+        Logger.debug('GET /api/config responded successfully');
       } catch (error) {
+        Logger.error('Error handling GET /api/config:', error);
         res.status(500).json({ error: error.message });
       }
     });
 
     this.app.post('/api/config', async (req, res) => {
       try {
-        /** @type {{config: import('./interfaces.js').AppConfig, domains: import('./interfaces.js').DomainsConfig}} */
+        Logger.debug('POST /api/config requested');
         const { config, domains } = req.body;
         
         await Utils.saveConfig(config, domains);
 
         if (this.onConfigUpdate) {
+          Logger.debug('Running onConfigUpdate callback');
           await this.onConfigUpdate();
         }
 
         res.json({ success: true });
+        Logger.debug('POST /api/config responded successfully');
       } catch (error) {
+        Logger.error('Error handling POST /api/config:', error);
         res.status(500).json({ error: error.message });
       }
     });
 
     this.app.get('/api/domains/status', async (req, res) => {
       try {
-        // Get status from cache instead of doing WHOIS queries
+        Logger.debug('GET /api/domains/status requested');
         const statusData = await Utils.loadDomainStatusCache();
         res.json(statusData);
+        Logger.debug(`GET /api/domains/status responded with ${statusData.length} domains`);
       } catch (error) {
+        Logger.error('Error handling GET /api/domains/status:', error);
         res.status(500).json({ error: error.message });
       }
     });
 
     this.app.get('/api/domains/:domain/whois', async (req, res) => {
       try {
-let domain = req.params.domain;
-        console.log(`🔍 WHOIS details requested for domain: ${domain}`);
-        console.time(`WHOIS query for ${domain}`);
+        const domain = req.params.domain;
+        Logger.debug(`GET /api/domains/${domain}/whois requested`);
+        
         const result = await whois(domain);
-        
-        console.timeEnd(`WHOIS query for ${domain}`);
-        console.log('\n====================================================');
-        console.log(`🌐 WHOIS DETAILS FOR: ${domain.toUpperCase()}`);
-        console.log('====================================================');
-        
-        // Log key information separately for quick reference
-        if (result.domainName) console.log(`Domain Name: ${result.domainName}`);
-        if (result.registrar) console.log(`Registrar: ${result.registrar}`);
-        if (result.registrarUrl) console.log(`Registrar URL: ${result.registrarUrl}`);
-        if (result.updatedDate) console.log(`Updated Date: ${result.updatedDate}`);
-        if (result.creationDate) console.log(`Creation Date: ${result.creationDate}`);
-        if (result.expirationDate || result.registryExpiryDate || result.expiresOn) {
-            console.log(`Expiration Date: ${result.expirationDate || result.registryExpiryDate || result.expiresOn}`);
-        }
-        if (result.nameServers) console.log(`Name Servers: ${result.nameServers}`);
-        
-        // Log the full response
-        console.log('\nFull WHOIS Response:');
-        console.log(result);
-        console.log('====================================================\n');
         res.json(result);
+        Logger.debug(`GET /api/domains/${domain}/whois responded successfully`);
       } catch (error) {
+        Logger.error(`Error handling GET /api/domains/${req.params.domain}/whois:`, error);
         res.status(500).json({ error: error.message });
       }
     });
+    
+    Logger.debug('WebInterface routes set up');
   }
 
   /**
@@ -106,6 +101,8 @@ let domain = req.params.domain;
    * @returns {Promise<number>} The port the server is running on
    */
   async start(initialPort = 3000, maxAttempts = 10) {
+    Logger.info(`Starting web server (trying ports ${initialPort}-${initialPort + maxAttempts - 1})`);
+    
     for (let port = initialPort; port < initialPort + maxAttempts; port++) {
       try {
         await new Promise((resolve, reject) => {
@@ -113,24 +110,26 @@ let domain = req.params.domain;
           
           this.server.once('error', (err) => {
             if (err.code === 'EADDRINUSE') {
-              console.log(`Port ${port} is in use, trying next port...`);
+              Logger.warn(`Port ${port} is in use, trying next port...`);
               this.server.close();
               resolve(false);
             } else {
+              Logger.error(`Error starting server on port ${port}:`, err);
               reject(err);
             }
           });
 
           this.server.listen(port, () => {
-            console.log(`Web interface running at http://localhost:${port}`);
+            Logger.info(`Web interface running at http://localhost:${port}`);
             resolve(true);
           });
         });
 
         return port;
       } catch (error) {
-        console.error(`Error starting server on port ${port}:`, error);
+        Logger.error(`Error starting server on port ${port}:`, error);
         if (port === initialPort + maxAttempts - 1) {
+          Logger.error('Failed to find an available port');
           throw new Error('Failed to find an available port');
         }
       }
@@ -144,10 +143,14 @@ let domain = req.params.domain;
   async stop() {
     return new Promise((resolve) => {
       if (!this.server) {
+        Logger.debug('No server to stop');
         resolve();
         return;
       }
-      this.server.close(() => resolve());
+      this.server.close(() => {
+        Logger.info('Web server stopped');
+        resolve();
+      });
     });
   }
 } 

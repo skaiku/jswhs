@@ -3,6 +3,7 @@ import { DomainChecker } from './domainChecker.js';
 import { Notifier } from './notifier.js';
 import { WebInterface } from './webInterface.js';
 import { Utils } from './utils.js';
+import { Logger } from './logger.js';
 
 let currentJob = null;
 let recalculationJob = null;
@@ -13,7 +14,12 @@ let recalculationJob = null;
  */
 async function checkDomains() {
   try {
+    const done = Logger.task('Domain check');
     const { config, domains } = await Utils.loadConfig();
+    
+    // Set log level from config
+    Logger.setLevel(config.logLevel || 'info');
+    
     const checker = new DomainChecker(config.warningDays);
     const notifier = new Notifier(config.ntfy);
     
@@ -21,12 +27,12 @@ async function checkDomains() {
     let cachedData = [];
     if (config.useCache) {
       cachedData = await Utils.loadDomainStatusCache();
-      console.log(`Cache usage is ENABLED. Loaded ${cachedData.length} cached domain records.`);
+      Logger.info(`Cache usage is ENABLED. Loaded ${cachedData.length} cached domain records.`);
     } else {
-      console.log('Cache usage is DISABLED. Will perform full WHOIS queries for all domains.');
+      Logger.info('Cache usage is DISABLED. Will perform full WHOIS queries for all domains.');
     }
 
-    console.log('Starting domain check...');
+    Logger.section('Starting Domain Check');
 
     const statusResults = [];
     const currentDate = new Date();
@@ -49,37 +55,40 @@ async function checkDomains() {
           
           // If days until expiration is significantly greater than warning days, use cache
           if (daysUntilExpiration > config.warningDays * 2) {
-            console.log(`🔄 USING CACHE for ${domain}: ${daysUntilExpiration} days until expiration (${expirationDate.toISOString().split('T')[0]})`);
+            Logger.info(`🔄 USING CACHE for ${domain}: ${daysUntilExpiration} days until expiration (${expirationDate.toISOString().split('T')[0]})`);
             cacheHits++;
             
             result = {
               ...cachedDomain,
               daysUntilExpiration,
-              needsWarning: daysUntilExpiration <= config.warningDays
+              needsWarning: daysUntilExpiration <= config.warningDays,
+              description: domainObj.description // Update description from config
             };
             
             // Skip WHOIS query
             statusResults.push(result);
             continue;
           } else {
-            console.log(`⚠️ NOT USING CACHE for ${domain}: Only ${daysUntilExpiration} days until expiration (below threshold of ${config.warningDays * 2} days)`);
+            Logger.debug(`⚠️ NOT USING CACHE for ${domain}: Only ${daysUntilExpiration} days until expiration (below threshold of ${config.warningDays * 2} days)`);
             cacheSkips++;
           }
         } else {
           if (!cachedDomain) {
-            console.log(`❓ NOT USING CACHE for ${domain}: No cached data found`);
+            Logger.debug(`❓ NOT USING CACHE for ${domain}: No cached data found`);
           } else if (cachedDomain.error) {
-            console.log(`❌ NOT USING CACHE for ${domain}: Previous error in cached data`);
+            Logger.debug(`❌ NOT USING CACHE for ${domain}: Previous error in cached data`);
           } else {
-            console.log(`❌ NOT USING CACHE for ${domain}: Missing expiration date in cached data`);
+            Logger.debug(`❌ NOT USING CACHE for ${domain}: Missing expiration date in cached data`);
           }
           cacheSkips++;
         }
       }
       
       // If we can't use cache or domain is approaching expiration, do a WHOIS query
-      console.log(`🔍 Performing WHOIS query for ${domain}...`);
+      const whoisDone = Logger.task(`WHOIS query for ${domain}`);
+      Logger.info(`🔍 Performing WHOIS query for ${domain}...`);
       result = await checker.checkDomain(domain);
+      whoisDone('completed');
       
       // Add description to the result
       result.description = domainObj.description;
@@ -88,14 +97,14 @@ async function checkDomains() {
       statusResults.push(result);
       
       if (result.error) {
-        console.error(`❌ Error checking ${domain}:`, result.error);
+        Logger.error(`❌ Error checking ${domain}: ${result.error}`);
         continue;
       }
 
-      console.log(`✅ ${domain}: ${result.daysUntilExpiration} days until expiration (${new Date(result.expirationDate).toISOString().split('T')[0]})`);
+      Logger.info(`✅ ${domain}: ${result.daysUntilExpiration} days until expiration (${new Date(result.expirationDate).toISOString().split('T')[0]})`);
 
       if (result.needsWarning) {
-        console.log(`🚨 SENDING NOTIFICATION for ${domain}: ${result.daysUntilExpiration} days until expiration`);
+        Logger.warn(`🚨 SENDING NOTIFICATION for ${domain}: ${result.daysUntilExpiration} days until expiration`);
         await notifier.sendNotification(result);
       }
     }
@@ -107,15 +116,16 @@ async function checkDomains() {
     if (config.useCache) {
       const totalDomains = domains.domains.length;
       const cacheHitPercentage = (cacheHits / totalDomains * 100).toFixed(2);
-      console.log(`\n📊 CACHE USAGE SUMMARY:`);
-      console.log(`Total domains: ${totalDomains}`);
-      console.log(`Cache hits: ${cacheHits} (${cacheHitPercentage}%)`);
-      console.log(`WHOIS queries: ${cacheSkips} (${(100 - parseFloat(cacheHitPercentage)).toFixed(2)}%)`);
-      console.log(`Cache threshold: ${config.warningDays * 2} days (2x warning days)`);
+      Logger.section('Cache Usage Summary');
+      Logger.info(`Total domains: ${totalDomains}`);
+      Logger.info(`Cache hits: ${cacheHits} (${cacheHitPercentage}%)`);
+      Logger.info(`WHOIS queries: ${cacheSkips} (${(100 - parseFloat(cacheHitPercentage)).toFixed(2)}%)`);
+      Logger.info(`Cache threshold: ${config.warningDays * 2} days (2x warning days)`);
     }
     
+    done('completed');
   } catch (error) {
-    console.error('Error in checkDomains:', error);
+    Logger.error('Error in checkDomains:', error);
   }
 }
 
@@ -125,22 +135,26 @@ async function checkDomains() {
  */
 async function recalculateDaysUntilExpiration() {
   try {
-    console.log('Recalculating days until expiration...');
+    const done = Logger.task('Recalculate days until expiration');
+    Logger.info('Recalculating days until expiration...');
     
     const { config } = await Utils.loadConfig();
     const statusData = await Utils.loadDomainStatusCache();
     
     if (!statusData || statusData.length === 0) {
-      console.log('No domain status data found to recalculate');
+      Logger.warn('No domain status data found to recalculate');
+      done('no data');
       return;
     }
     
+    const currentDate = new Date();
     const updatedStatusData = statusData.map(domain => {
       if (domain.expirationDate && !domain.error) {
         const expirationDate = new Date(domain.expirationDate);
-        const today = new Date();
-        const diffTime = expirationDate - today;
+        const diffTime = expirationDate - currentDate;
         const daysUntilExpiration = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        Logger.debug(`Recalculated ${domain.domain}: ${daysUntilExpiration} days until expiration`);
         
         return {
           ...domain,
@@ -152,23 +166,33 @@ async function recalculateDaysUntilExpiration() {
     });
     
     await Utils.saveDomainStatusCache(updatedStatusData);
-    console.log('Days until expiration recalculated successfully');
+    Logger.info('Days until expiration recalculated successfully');
     
     // Check for new warnings
     const notifier = new Notifier(config.ntfy);
+    let newWarnings = 0;
     
     for (const domain of updatedStatusData) {
       if (domain.needsWarning && !domain.error) {
         // Check if this is a new warning (wasn't warning before)
         const oldDomain = statusData.find(d => d.domain === domain.domain);
         if (!oldDomain || !oldDomain.needsWarning) {
+          Logger.warn(`New warning for ${domain.domain}: ${domain.daysUntilExpiration} days until expiration`);
           await notifier.sendNotification(domain);
+          newWarnings++;
         }
       }
     }
     
+    if (newWarnings > 0) {
+      Logger.warn(`Sent ${newWarnings} new warning notifications`);
+    } else {
+      Logger.info('No new warnings detected');
+    }
+    
+    done('completed');
   } catch (error) {
-    console.error('Error recalculating days until expiration:', error);
+    Logger.error('Error recalculating days until expiration:', error);
   }
 }
 
@@ -283,22 +307,33 @@ async function updateSchedule() {
 
 async function main() {
   try {
+    Logger.section('Domain Expiration Checker Starting');
+    
+    // Load initial config to set log level
+    const { config } = await Utils.loadConfig();
+    Logger.setLevel(config.logLevel || 'info');
+    
     // Start web interface
     const webInterface = new WebInterface(updateSchedule);
-    await webInterface.start();
+    const port = await webInterface.start();
+    Logger.info(`Web interface started on port ${port}`);
 
     // Initial setup
+    Logger.info('Setting up initial schedule');
     await updateSchedule();
     
     // Run initial recalculation
+    Logger.info('Running initial days recalculation');
     await recalculateDaysUntilExpiration();
+    
+    Logger.section('Domain Expiration Checker Started');
   } catch (error) {
-    console.error('Failed to start application:', error);
+    Logger.error('Failed to start application:', error);
     process.exit(1);
   }
 }
 
 main().catch(error => {
-  console.error('Unhandled error:', error);
+  Logger.error('Unhandled error:', error);
   process.exit(1);
 }); 

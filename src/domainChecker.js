@@ -1,4 +1,5 @@
 import whois from 'whois-json';
+import { Logger } from './logger.js';
 
 /**
  * Class to check domain expiration dates
@@ -9,6 +10,7 @@ export class DomainChecker {
    */
   constructor(warningDays) {
     this.warningDays = warningDays;
+    Logger.debug(`DomainChecker initialized with warning days: ${warningDays}`);
   }
 
   /**
@@ -17,22 +19,25 @@ export class DomainChecker {
    * @returns {Promise<import('./interfaces.js').DomainStatus>} Domain status information
    */
   async checkDomain(domain) {
+    const done = Logger.task(`Check domain: ${domain}`);
     try {
+      Logger.debug(`Starting WHOIS query for ${domain}`);
       const result = await whois(domain);
       
       // Log the full WHOIS response
-      console.log('\n=== WHOIS Response for', domain, '===');
-      console.log(JSON.stringify(result, null, 2));
-      console.log('=====================================\n');
-
+      Logger.debug(`WHOIS Response for ${domain}:`, result);
+      
       // Try different possible date fields
       const expirationDate = this.findExpirationDate(result);
       if (!expirationDate) {
+        Logger.error(`Could not find expiration date for ${domain}`);
         throw new Error('Could not find expiration date in WHOIS data');
       }
 
       const daysUntilExpiration = this.calculateDaysUntilExpiration(expirationDate);
+      Logger.debug(`${domain} expires in ${daysUntilExpiration} days (${expirationDate.toISOString()})`);
 
+      done('completed');
       return {
         domain,
         expirationDate,
@@ -40,7 +45,8 @@ export class DomainChecker {
         needsWarning: daysUntilExpiration <= this.warningDays
       };
     } catch (error) {
-      console.error(`Error checking domain ${domain}:`, error);
+      Logger.error(`Error checking domain ${domain}:`, error);
+      done('failed');
       return {
         domain,
         error: error.message
@@ -54,7 +60,7 @@ export class DomainChecker {
    * @returns {Date|null} Expiration date or null if not found
    */
   findExpirationDate(whoisData) {
-    // 1. First try direct field matching with common field names
+    // List of possible field names for expiration date
     const dateFields = [
       'expiresOn',
       'expirationDate',
@@ -69,44 +75,27 @@ export class DomainChecker {
       if (whoisData[field]) {
         const date = new Date(whoisData[field]);
         if (!isNaN(date.getTime())) {
-          console.log(`Found expiration date in field: ${field}`);
+          Logger.debug(`Found expiration date in field: ${field} = ${whoisData[field]}`);
           return date;
         }
       }
     }
 
-    // 2. If direct matching fails, try regex matching on field names
+    // If direct matching fails, try regex matching on field names
     const expiryRegex = /(expir|renew|registr.*expir|expir.*date|valid.*until)/i;
     
     for (const field in whoisData) {
       if (expiryRegex.test(field) && whoisData[field]) {
         const date = new Date(whoisData[field]);
         if (!isNaN(date.getTime())) {
-          console.log(`Found expiration date using regex in field: ${field}`);
+          Logger.debug(`Found expiration date using regex in field: ${field} = ${whoisData[field]}`);
           return date;
         }
       }
     }
 
-    // 3. If all else fails, try to find a date-like string in any field that looks like it's about expiration
-    for (const field in whoisData) {
-      const fieldValue = whoisData[field];
-      if (typeof fieldValue === 'string' && 
-          (field.toLowerCase().includes('expir') || field.toLowerCase().includes('renew'))) {
-        // Look for date patterns in the string
-        const dateMatch = fieldValue.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}|[A-Za-z]{3} \d{1,2} \d{4}/);
-        if (dateMatch) {
-          const date = new Date(dateMatch[0]);
-          if (!isNaN(date.getTime())) {
-            console.log(`Found expiration date in field value: ${field}`);
-            return date;
-          }
-        }
-      }
-    }
-
-    console.log('Could not find expiration date in WHOIS data');
-    console.log('Available fields:', Object.keys(whoisData).join(', '));
+    Logger.warn('Could not find expiration date in WHOIS data');
+    Logger.debug('Available fields:', Object.keys(whoisData).join(', '));
     return null;
   }
 

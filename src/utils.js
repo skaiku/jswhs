@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { Logger } from './logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -13,13 +14,25 @@ export class Utils {
    * @returns {Promise<{config: import('./interfaces.js').AppConfig, domains: import('./interfaces.js').DomainsConfig}>}
    */
   static async loadConfig() {
-    const config = JSON.parse(
-      await readFile(new URL('../config.json', import.meta.url))
-    );
-    const domains = JSON.parse(
-      await readFile(new URL('../domains.json', import.meta.url))
-    );
-    return { config, domains };
+    const done = Logger.task('Load configuration');
+    try {
+      const config = JSON.parse(
+        await readFile(new URL('../config.json', import.meta.url))
+      );
+      const domains = JSON.parse(
+        await readFile(new URL('../domains.json', import.meta.url))
+      );
+      
+      Logger.debug('Configuration loaded successfully');
+      Logger.debug(`Loaded ${domains.domains.length} domains`);
+      
+      done('completed');
+      return { config, domains };
+    } catch (error) {
+      Logger.error('Error loading configuration:', error);
+      done('failed');
+      throw error;
+    }
   }
 
   /**
@@ -29,14 +42,26 @@ export class Utils {
    * @returns {Promise<void>}
    */
   static async saveConfig(config, domains) {
-    await writeFile(
-      new URL('../config.json', import.meta.url),
-      JSON.stringify(config, null, 2)
-    );
-    await writeFile(
-      new URL('../domains.json', import.meta.url),
-      JSON.stringify(domains, null, 2)
-    );
+    const done = Logger.task('Save configuration');
+    try {
+      await writeFile(
+        new URL('../config.json', import.meta.url),
+        JSON.stringify(config, null, 2)
+      );
+      await writeFile(
+        new URL('../domains.json', import.meta.url),
+        JSON.stringify(domains, null, 2)
+      );
+      
+      Logger.info('Configuration saved successfully');
+      Logger.debug(`Saved ${domains.domains.length} domains`);
+      
+      done('completed');
+    } catch (error) {
+      Logger.error('Error saving configuration:', error);
+      done('failed');
+      throw error;
+    }
   }
 
   /**
@@ -44,12 +69,17 @@ export class Utils {
    * @returns {Promise<import('./interfaces.js').DomainStatus[]>}
    */
   static async loadDomainStatusCache() {
+    const done = Logger.task('Load domain status cache');
     try {
-      return JSON.parse(
+      const data = JSON.parse(
         await readFile(new URL('../cache/domain-status.json', import.meta.url))
       );
+      Logger.debug(`Loaded ${data.length} domain status records from cache`);
+      done('completed');
+      return data;
     } catch (error) {
-      console.log('No domain status cache found or error reading cache');
+      Logger.debug('No domain status cache found or error reading cache:', error.message);
+      done('no cache found');
       return [];
     }
   }
@@ -60,12 +90,14 @@ export class Utils {
    * @returns {Promise<void>}
    */
   static async saveDomainStatusCache(statusData) {
+    const done = Logger.task('Save domain status cache');
     try {
       // Ensure cache directory exists
       const fs = await import('fs');
       const cachePath = join(__dirname, '../cache');
       
       if (!fs.existsSync(cachePath)) {
+        Logger.debug(`Creating cache directory: ${cachePath}`);
         fs.mkdirSync(cachePath, { recursive: true });
       }
       
@@ -73,8 +105,12 @@ export class Utils {
         new URL('../cache/domain-status.json', import.meta.url),
         JSON.stringify(statusData, null, 2)
       );
+      
+      Logger.debug(`Saved ${statusData.length} domain status records to cache`);
+      done('completed');
     } catch (error) {
-      console.error('Error saving domain status cache:', error);
+      Logger.error('Error saving domain status cache:', error);
+      done('failed');
     }
   }
 } 

@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { Logger } from './logger.js';
 
 /**
  * Class to send notifications about domain expiration
@@ -10,6 +11,7 @@ export class Notifier {
   constructor(ntfyConfig) {
     this.ntfyUrl = ntfyConfig.url;
     this.priority = ntfyConfig.priority;
+    Logger.debug(`Notifier initialized with URL: ${this.ntfyUrl}, priority: ${this.priority}`);
   }
 
   /**
@@ -18,7 +20,10 @@ export class Notifier {
    * @returns {Promise<void>}
    */
   async sendNotification(domainInfo) {
+    const done = Logger.task(`Send notification for ${domainInfo.domain}`);
     const message = `Domain ${domainInfo.domain} will expire in ${domainInfo.daysUntilExpiration} days (${domainInfo.expirationDate.toISOString().split('T')[0]})`;
+    
+    Logger.warn(`Sending notification for ${domainInfo.domain}: ${message}`);
     
     try {
       await fetch(this.ntfyUrl, {
@@ -29,8 +34,11 @@ export class Notifier {
           'Title': 'Domain Expiration Warning'
         }
       });
+      Logger.info(`Notification sent successfully for ${domainInfo.domain}`);
+      done('completed');
     } catch (error) {
-      console.error('Error sending notification:', error);
+      Logger.error(`Error sending notification for ${domainInfo.domain}:`, error);
+      done('failed');
     }
   }
 } 
