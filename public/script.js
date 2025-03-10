@@ -397,18 +397,58 @@ async function showDetails(domain) {
         // Log the full response
         log('debug', 'Full WHOIS Response:', data);
         
+        // Format data for better display
+        const formattedData = JSON.stringify(data, null, 2)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        
         const modal = document.createElement('div');
         modal.className = 'modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'whois-modal-title');
+        
         modal.innerHTML = `
             <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2>WHOIS Details - ${domain}</h2>
-                <pre>${JSON.stringify(data, null, 2)}</pre>
+                <button class="close" aria-label="Close">&times;</button>
+                <h2 id="whois-modal-title">WHOIS Details - ${domain}</h2>
+                <div class="whois-data">
+                    <pre><code class="json">${formattedData}</code></pre>
+                </div>
             </div>
         `;
         
         document.body.appendChild(modal);
         log('info', `WHOIS modal opened for ${domain}`);
+        
+        // Make sure modal doesn't break when theme is changed while open
+        const applyCurrentTheme = () => {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                modal.classList.add('dark-mode-compatible');
+            } else {
+                modal.classList.remove('dark-mode-compatible');
+            }
+        };
+        
+        // Apply current theme immediately
+        applyCurrentTheme();
         
         const closeBtn = modal.querySelector('.close');
         closeBtn.onclick = () => {
@@ -416,12 +456,22 @@ async function showDetails(domain) {
             modal.remove();
         };
         
-        window.onclick = (event) => {
+        // Close on escape key
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                log('info', `WHOIS modal closed for ${domain} using escape key`);
+                modal.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
+        
+        // Close on outside click
+        modal.addEventListener('click', (event) => {
             if (event.target === modal) {
-                log('info', `WHOIS modal closed for ${domain}`);
+                log('info', `WHOIS modal closed for ${domain} by clicking outside`);
                 modal.remove();
             }
-        };
+        });
     } catch (error) {
         log('error', `Error loading WHOIS details for ${domain}:`, error);
         toast.error('WHOIS Error', `Failed to load details for ${domain}`);
