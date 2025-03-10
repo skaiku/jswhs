@@ -67,7 +67,31 @@ export class WebInterface {
 
     this.app.get('/api/domains/:domain/whois', async (req, res) => {
       try {
-        const result = await whois(req.params.domain);
+let domain = req.params.domain;
+        console.log(`🔍 WHOIS details requested for domain: ${domain}`);
+        console.time(`WHOIS query for ${domain}`);
+        const result = await whois(domain);
+        
+        console.timeEnd(`WHOIS query for ${domain}`);
+        console.log('\n====================================================');
+        console.log(`🌐 WHOIS DETAILS FOR: ${domain.toUpperCase()}`);
+        console.log('====================================================');
+        
+        // Log key information separately for quick reference
+        if (result.domainName) console.log(`Domain Name: ${result.domainName}`);
+        if (result.registrar) console.log(`Registrar: ${result.registrar}`);
+        if (result.registrarUrl) console.log(`Registrar URL: ${result.registrarUrl}`);
+        if (result.updatedDate) console.log(`Updated Date: ${result.updatedDate}`);
+        if (result.creationDate) console.log(`Creation Date: ${result.creationDate}`);
+        if (result.expirationDate || result.registryExpiryDate || result.expiresOn) {
+            console.log(`Expiration Date: ${result.expirationDate || result.registryExpiryDate || result.expiresOn}`);
+        }
+        if (result.nameServers) console.log(`Name Servers: ${result.nameServers}`);
+        
+        // Log the full response
+        console.log('\nFull WHOIS Response:');
+        console.log(result);
+        console.log('====================================================\n');
         res.json(result);
       } catch (error) {
         res.status(500).json({ error: error.message });
