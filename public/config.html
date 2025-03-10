@@ -41,6 +41,16 @@
                 <label for="warningDays">Warning Days:</label>
                 <input type="number" id="warningDays" min="1" max="90">
             </div>
+            <div class="form-group">
+                <label for="recalculateAfterSave">Recalculate After Save:</label>
+                <input type="checkbox" id="recalculateAfterSave">
+                <span class="checkbox-label">Recalculate days instead of full check after saving</span>
+            </div>
+            <div class="form-group">
+                <label for="useCache">Use Cache When Possible:</label>
+                <input type="checkbox" id="useCache">
+                <span class="checkbox-label">Use cached data for domains far from expiration</span>
+            </div>
         </section>
 
         <section class="config-section">
@@ -51,6 +61,7 @@
 
         <button onclick="saveConfig()" class="btn-save">Save Configuration</button>
     </div>
+    <script src="toast.js"></script>
     <script src="config.js"></script>
 </body>
 </html> 

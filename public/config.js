@@ -15,15 +15,23 @@ async function loadConfig() {
         document.getElementById('checkInterval').value = data.config.checkInterval;
         document.getElementById('warningDays').value = data.config.warningDays;
         
+        // Set checkbox values
+        document.getElementById('recalculateAfterSave').checked = 
+            data.config.recalculateAfterSave === true;
+        document.getElementById('useCache').checked = 
+            data.config.useCache === true;
+        
         // Load domains
         const domainsList = document.getElementById('domains-list');
         domainsList.innerHTML = '';
         data.domains.domains.forEach(domain => {
             addDomainToList(domain);
         });
+        
+        toast.info('Configuration Loaded', 'Configuration loaded successfully');
     } catch (error) {
         console.error('Error loading config:', error);
-        alert('Error loading configuration');
+        toast.error('Loading Error', 'Failed to load configuration');
     }
 }
 
@@ -60,7 +68,9 @@ async function saveConfig() {
             priority: document.getElementById('priority').value
         },
         checkInterval: document.getElementById('checkInterval').value,
-        warningDays: parseInt(document.getElementById('warningDays').value)
+        warningDays: parseInt(document.getElementById('warningDays').value),
+        recalculateAfterSave: document.getElementById('recalculateAfterSave').checked,
+        useCache: document.getElementById('useCache').checked
     };
 
     const domains = {
@@ -71,6 +81,8 @@ async function saveConfig() {
     };
 
     try {
+        toast.info('Saving...', 'Saving your configuration');
+        
         const response = await fetch('/api/config', {
             method: 'POST',
             headers: {
@@ -80,14 +92,17 @@ async function saveConfig() {
         });
 
         if (response.ok) {
-            alert('Configuration saved successfully');
-            window.location.href = '/';  // Redirect to dashboard after saving
+            toast.success('Saved', 'Configuration saved successfully');
+            // Wait a moment to show the success message before redirecting
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
         } else {
             throw new Error('Failed to save configuration');
         }
     } catch (error) {
         console.error('Error saving config:', error);
-        alert('Error saving configuration');
+        toast.error('Save Error', 'Failed to save configuration');
     }
 }
 
