@@ -26,6 +26,68 @@ function log(level, message, ...args) {
   }
 }
 
+// Add these variables at the top of the file
+let currentView = 'card'; // Default view
+let allDomains = []; // Store all domains
+let searchTimeout = null; // For debouncing search
+
+/**
+ * Filter domains based on search term
+ * @param {string} searchTerm - The search term to filter by
+ * @returns {Array} Filtered domains
+ */
+function filterDomains(searchTerm) {
+    if (!searchTerm) return allDomains;
+    
+    const term = searchTerm.toLowerCase();
+    return allDomains.filter(domain => {
+        return domain.domain.toLowerCase().includes(term) ||
+               (domain.description && domain.description.toLowerCase().includes(term)) ||
+               (domain.error && domain.error.toLowerCase().includes(term));
+    });
+}
+
+/**
+ * Handle search input changes
+ */
+function handleSearch(event) {
+    const searchTerm = event.target.value.trim();
+    
+    // Clear previous timeout
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+    
+    // Debounce the search to avoid too many updates
+    searchTimeout = setTimeout(() => {
+        const filteredDomains = filterDomains(searchTerm);
+        updateDashboard(filteredDomains);
+        
+        // Show feedback if no results
+        if (filteredDomains.length === 0) {
+            toast.info('No Results', 'No domains match your search criteria');
+        }
+    }, 300);
+}
+
+/**
+ * Update the dashboard with filtered domains
+ * @param {Array} domains - Domains to display
+ */
+function updateDashboard(domains) {
+    const dashboard = document.getElementById('dashboard');
+    dashboard.innerHTML = '';
+    
+    if (domains.length === 0) {
+        dashboard.innerHTML = '<div class="no-data">No domains match your search criteria.</div>';
+        return;
+    }
+    
+    domains.forEach(domain => {
+        dashboard.appendChild(createDomainCard(domain));
+    });
+}
+
 /**
  * Load domain status data from cache
  */
@@ -33,25 +95,20 @@ async function loadDashboard() {
     try {
         log('info', 'Loading dashboard data');
         const response = await fetch('/api/domains/status');
-        const domains = await response.json();
+        allDomains = await response.json();
         
-        const dashboard = document.getElementById('dashboard');
-        dashboard.innerHTML = '';
+        const searchTerm = document.getElementById('searchInput').value.trim();
+        const filteredDomains = filterDomains(searchTerm);
+        updateDashboard(filteredDomains);
         
-        if (domains.length === 0) {
+        if (allDomains.length === 0) {
             log('warn', 'No domain data available');
-            dashboard.innerHTML = '<div class="no-data">No domain data available. Please add domains in the configuration and wait for the first check to complete.</div>';
-            toast.warning('No Data', 'No domain data available. Please add domains in the configuration.');
+            toast.warning('No Data', 'No domain data available. Please add domains in the configuration and wait for the first check to complete.');
             return;
         }
         
-        log('info', `Rendering ${domains.length} domain cards`);
-        domains.forEach(domain => {
-            dashboard.appendChild(createDomainCard(domain));
-        });
-        
         // Show summary toast
-        const expiringSoon = domains.filter(d => d.needsWarning).length;
+        const expiringSoon = allDomains.filter(d => d.needsWarning).length;
         if (expiringSoon > 0) {
             log('warn', `${expiringSoon} domains expiring soon`);
             toast.warning('Domains Expiring Soon', `${expiringSoon} domain${expiringSoon > 1 ? 's' : ''} will expire soon`);
@@ -72,6 +129,26 @@ function getStatusEmoji(daysUntilExpiration) {
     if (daysUntilExpiration <= 7) return '🚨'; // Critical
     if (daysUntilExpiration <= 30) return '⚠️'; // Warning
     return '✅'; // OK
+}
+
+/**
+ * Toggle between card and list views
+ */
+function toggleView() {
+    const dashboard = document.getElementById('dashboard');
+    const viewToggle = document.getElementById('viewToggle');
+    
+    currentView = currentView === 'card' ? 'list' : 'card';
+    
+    // Update dashboard class
+    dashboard.className = `dashboard ${currentView}-view`;
+    
+    // Update toggle button
+    viewToggle.querySelector('.icon').textContent = currentView === 'card' ? '📋' : '🖼️';
+    viewToggle.querySelector('.text').textContent = currentView === 'card' ? 'List View' : 'Card View';
+    
+    // Reload the dashboard to apply the new view
+    loadDashboard();
 }
 
 /**
@@ -100,18 +177,34 @@ function createDomainCard(domain) {
     const expiryDate = new Date(domain.expirationDate).toLocaleDateString();
     const statusEmoji = getStatusEmoji(domain.daysUntilExpiration);
     
-    card.innerHTML = `
-        <div class="card-header">
-            <h3>${domain.domain}</h3>
-            <span class="status-emoji">${statusEmoji}</span>
-        </div>
-        <div class="card-body">
-            <p class="description">${domain.description || ''}</p>
-            <p>Expires: ${expiryDate}</p>
-            <p>Days remaining: ${domain.daysUntilExpiration}</p>
-        </div>
-        <button onclick="showDetails('${domain.domain}')" class="btn-details">Show Details</button>
-    `;
+    // Create different layouts based on current view
+    if (currentView === 'list') {
+        card.innerHTML = `
+            <div class="card-header">
+                <h3>${domain.domain}</h3>
+                <span class="status-emoji">${statusEmoji}</span>
+            </div>
+            <div class="card-body">
+                <p class="description">${domain.description || ''}</p>
+                <p>Expires: ${expiryDate}</p>
+                <p>Days remaining: ${domain.daysUntilExpiration}</p>
+            </div>
+            <button onclick="showDetails('${domain.domain}')" class="btn-details">Details</button>
+        `;
+    } else {
+        card.innerHTML = `
+            <div class="card-header">
+                <h3>${domain.domain}</h3>
+                <span class="status-emoji">${statusEmoji}</span>
+            </div>
+            <div class="card-body">
+                <p class="description">${domain.description || ''}</p>
+                <p>Expires: ${expiryDate}</p>
+                <p>Days remaining: ${domain.daysUntilExpiration}</p>
+            </div>
+            <button onclick="showDetails('${domain.domain}')" class="btn-details">Show Details</button>
+        `;
+    }
     
     return card;
 }
@@ -177,8 +270,17 @@ async function showDetails(domain) {
     }
 }
 
-// Load dashboard when page loads
+// Update the DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', () => {
     log('info', 'Dashboard page loaded');
+    
+    // Add event listeners
+    document.getElementById('viewToggle').addEventListener('click', toggleView);
+    document.getElementById('searchInput').addEventListener('input', handleSearch);
+    
+    // Initialize the dashboard with the default view
+    const dashboard = document.getElementById('dashboard');
+    dashboard.className = `dashboard ${currentView}-view`;
+    
     loadDashboard();
 }); 

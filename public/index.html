@@ -9,10 +9,22 @@
 <body>
     <div class="container">
         <header>
-            <h1>Domain Expiration Dashboard</h1>
-            <nav>
-                <a href="/config.html" class="btn-config">⚙️ Configuration</a>
-            </nav>
+            <div class="header-left">
+                <h1>Domain Expiration Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search domains..." title="Search domains">
+                    <span class="search-icon">🔍</span>
+                </div>
+                <div class="header-buttons">
+                    <button id="viewToggle" class="btn-toggle" title="Toggle view">
+                        <span class="icon">📋</span>
+                        <span class="text">List View</span>
+                    </button>
+                    <a href="/config.html" class="btn-config" title="Configuration">⚙️</a>
+                </div>
+            </div>
         </header>
         
         <div id="dashboard" class="dashboard">

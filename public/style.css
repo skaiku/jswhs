@@ -7,12 +7,12 @@ body {
 }
 
 .container {
-    max-width: 800px;
+    max-width: 1200px;
     margin: 0 auto;
     background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .config-section {
@@ -87,6 +87,7 @@ button:hover {
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 20px;
     padding: 20px 0;
+    margin-top: 20px;
 }
 
 .domain-card {
@@ -154,7 +155,27 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.header-left h1 {
+    margin: 0;
+    font-size: 24px;
+    color: #333;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.header-buttons {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .btn-config, .btn-back {
@@ -331,4 +352,201 @@ input[type="checkbox"] {
 
 .test-error {
     color: #f44336;
+}
+
+/* Add these new styles */
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.view-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.btn-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    color: #333;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-toggle:hover {
+    background-color: #e8e8e8;
+    border-color: #ccc;
+}
+
+.btn-toggle .icon {
+    font-size: 16px;
+}
+
+/* List view styles */
+.dashboard.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.dashboard.list-view .domain-card {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.dashboard.list-view .card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.dashboard.list-view .card-body {
+    display: flex;
+    gap: 2rem;
+    margin: 0;
+}
+
+.dashboard.list-view .btn-details {
+    margin: 0;
+}
+
+/* Card view styles (existing) */
+.dashboard.card-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .dashboard.list-view .domain-card {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    
+    .dashboard.list-view .card-body {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    header {
+        flex-direction: column;
+        gap: 20px;
+        align-items: stretch;
+    }
+
+    .header-right {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .search-box {
+        width: 100%;
+    }
+
+    .search-box input {
+        width: 100%;
+    }
+
+    .search-box input:focus {
+        width: 100%;
+    }
+
+    .header-buttons {
+        justify-content: space-between;
+    }
+
+    .btn-toggle {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+/* Add these styles for the search box */
+.search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-box input {
+    padding: 10px 40px 10px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+    width: 250px;
+    transition: all 0.3s ease;
+    background-color: #f8f8f8;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #2196F3;
+    background-color: #fff;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15);
+    width: 300px;
+}
+
+.search-box input::placeholder {
+    color: #888;
+}
+
+.search-icon {
+    position: absolute;
+    right: 12px;
+    color: #666;
+    font-size: 16px;
+    pointer-events: none;
+}
+
+/* Update header-actions to accommodate search box */
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Responsive adjustments for search box */
+@media (max-width: 768px) {
+    .search-box input {
+        width: 150px;
+    }
+    
+    .search-box input:focus {
+        width: 200px;
+    }
+}
+
+/* Update configuration button styles */
+.btn-config {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 20px;
+    transition: all 0.2s ease;
+}
+
+.btn-config:hover {
+    background-color: #43a047;
+    transform: scale(1.05);
 } 
