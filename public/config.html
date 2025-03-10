@@ -31,100 +31,135 @@
         <main class="main-content">
             <div class="config-card">
                 <section class="config-section">
-                    <h2>Notification Settings</h2>
-                    <div class="form-group">
-                        <label for="ntfyUrl">Ntfy.sh URL</label>
-                        <div class="input-wrapper">
-                            <input type="text" id="ntfyUrl" placeholder="https://ntfy.sh/your-topic">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="priority">Notification Priority</label>
-                        <div class="select-wrapper">
-                            <select id="priority">
-                                <option value="min">Minimum</option>
-                                <option value="low">Low</option>
-                                <option value="default" selected>Default</option>
-                                <option value="high">High</option>
-                                <option value="max">Maximum</option>
-                            </select>
-                            <svg class="select-icon" viewBox="0 0 24 24">
-                                <path d="M6 9l6 6 6-6"/>
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h2>
+                            <svg class="section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18l6-6-6-6"/>
                             </svg>
-                        </div>
+                            Notification Settings
+                        </h2>
                     </div>
-                    <div class="form-group">
-                        <label for="ntfyUsername">Authentication (Optional)</label>
-                        <div class="input-wrapper">
-                            <input type="text" id="ntfyUsername" placeholder="Username">
+                    <div class="section-content">
+                        <div class="form-group">
+                            <label for="ntfyUrl">Ntfy.sh URL</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="ntfyUrl" placeholder="https://ntfy.sh/your-topic">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <div class="input-wrapper">
-                            <input type="password" id="ntfyPassword" placeholder="Password">
+                        <div class="form-group">
+                            <label for="priority">Notification Priority</label>
+                            <div class="select-wrapper">
+                                <select id="priority">
+                                    <option value="min">Minimum</option>
+                                    <option value="low">Low</option>
+                                    <option value="default" selected>Default</option>
+                                    <option value="high">High</option>
+                                    <option value="max">Maximum</option>
+                                </select>
+                                <svg class="select-icon" viewBox="0 0 24 24">
+                                    <path d="M6 9l6 6 6-6"/>
+                                </svg>
+                            </div>
                         </div>
-                    </div>
-                    <button id="testNotification" class="btn-secondary">
-                        <svg class="icon" viewBox="0 0 24 24">
-                            <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
-                        </svg>
-                        Test Notification
-                    </button>
-                    <span id="testResult" class="test-result"></span>
-                </section>
-
-                <section class="config-section">
-                    <h2>Check Settings</h2>
-                    <div class="form-group">
-                        <label for="checkInterval">Check Interval (minutes)</label>
-                        <div class="input-wrapper">
-                            <input type="number" id="checkInterval" value="60" min="1">
+                        <div class="form-group">
+                            <label for="ntfyUsername">Authentication (Optional)</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="ntfyUsername" placeholder="Username">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="warningDays">Warning Days</label>
-                        <div class="input-wrapper">
-                            <input type="number" id="warningDays" value="30" min="1">
+                        <div class="form-group">
+                            <div class="input-wrapper">
+                                <input type="password" id="ntfyPassword" placeholder="Password">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="logLevel">Log Level</label>
-                        <div class="select-wrapper">
-                            <select id="logLevel">
-                                <option value="debug">Debug</option>
-                                <option value="info" selected>Info</option>
-                                <option value="warn">Warning</option>
-                                <option value="error">Error</option>
-                            </select>
-                            <svg class="select-icon" viewBox="0 0 24 24">
-                                <path d="M6 9l6 6 6-6"/>
-                            </svg>
+                        <div class="section-actions">
+                            <button id="testNotification" class="btn-secondary btn-small">
+                                <svg class="icon" viewBox="0 0 24 24">
+                                    <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                                </svg>
+                                Test Notification
+                            </button>
+                            <span id="testResult" class="test-result"></span>
                         </div>
-                    </div>
-                    <div class="checkbox-group">
-                        <label class="checkbox-wrapper">
-                            <input type="checkbox" id="recalculateAfterSave">
-                            <span class="checkbox-label">Recalculate after save</span>
-                        </label>
-                        <label class="checkbox-wrapper">
-                            <input type="checkbox" id="useCache">
-                            <span class="checkbox-label">Use cache</span>
-                        </label>
                     </div>
                 </section>
 
                 <section class="config-section">
-                    <div class="section-header">
-                        <h2>Domains</h2>
-                        <button onclick="addDomain()" class="btn-secondary">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h2>
+                            <svg class="section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                            Check Settings
+                        </h2>
+                    </div>
+                    <div class="section-content">
+                        <div class="form-group">
+                            <label for="checkInterval">Check Interval (minutes)</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="checkInterval" value="60" min="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="warningDays">Warning Days</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="warningDays" value="30" min="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="logLevel">Log Level</label>
+                            <div class="select-wrapper">
+                                <select id="logLevel">
+                                    <option value="debug">Debug</option>
+                                    <option value="info" selected>Info</option>
+                                    <option value="warn">Warning</option>
+                                    <option value="error">Error</option>
+                                </select>
+                                <svg class="select-icon" viewBox="0 0 24 24">
+                                    <path d="M6 9l6 6 6-6"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-wrapper">
+                                <input type="checkbox" id="recalculateAfterSave">
+                                <span class="checkbox-label">Recalculate after save</span>
+                            </label>
+                            <label class="checkbox-wrapper">
+                                <input type="checkbox" id="useCache">
+                                <span class="checkbox-label">Use cache</span>
+                            </label>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="config-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h2>
+                            <svg class="section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                            Domains
+                        </h2>
+                        <button onclick="event.stopPropagation(); addDomain()" class="btn-secondary btn-small">
                             <svg class="icon" viewBox="0 0 24 24">
                                 <path d="M12 5v14M5 12h14"/>
                             </svg>
                             Add Domain
                         </button>
                     </div>
-                    <div id="domains-list" class="domains-list">
-                        <!-- Domain entries will be added here -->
+                    <div class="section-content">
+                        <div id="domains-list" class="domains-list">
+                            <!-- Domain entries will be added here -->
+                        </div>
+                        <div class="section-footer">
+                            <button onclick="addDomain()" class="btn-secondary btn-small">
+                                <svg class="icon" viewBox="0 0 24 24" width="16" height="16">
+                                    <path d="M12 5v14M5 12h14"/>
+                                </svg>
+                                Add Another Domain
+                            </button>
+                        </div>
                     </div>
                 </section>
 

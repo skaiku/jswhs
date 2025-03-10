@@ -80,11 +80,19 @@ function addDomain(domain = '', description = '') {
     const domainEntry = document.createElement('div');
     domainEntry.className = 'domain-entry';
     domainEntry.innerHTML = `
-        <div class="domain-inputs">
+        <div class="domain-field">
+            <label>Domain</label>
             <input type="text" class="domain-input" value="${domain}" placeholder="example.com">
-            <input type="text" class="description-input" value="${description}" placeholder="Description">
         </div>
-        <button onclick="this.parentElement.remove()" class="btn-remove">Remove</button>
+        <div class="domain-field">
+            <label>Description</label>
+            <input type="text" class="description-input" value="${description}" placeholder="Optional description">
+        </div>
+        <button onclick="this.parentElement.remove()" class="btn-remove btn-small">
+            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+        </button>
     `;
     document.getElementById('domains-list').appendChild(domainEntry);
 }
@@ -155,82 +163,95 @@ async function saveConfig() {
 }
 
 /**
- * Send a test notification
+ * Tests the notification service with the current settings
  */
-async function sendTestNotification() {
-    const testButton = document.getElementById('testNotification');
-    const resultSpan = document.getElementById('testResult');
-    
-    // Get current notification settings
-    const ntfyConfig = {
-        url: document.getElementById('ntfyUrl').value,
-        priority: document.getElementById('priority').value,
-        auth: {
-            username: document.getElementById('ntfyUsername').value,
-            password: document.getElementById('ntfyPassword').value
-        }
-    };
-    
-    // Validate URL
-    if (!ntfyConfig.url) {
-        resultSpan.textContent = 'Please enter a valid ntfy.sh URL';
-        resultSpan.className = 'test-result test-error';
-        return;
-    }
+async function testNotification() {
+    const testResult = document.getElementById('testResult');
+    testResult.textContent = 'Sending...';
+    testResult.className = 'test-result';
     
     try {
-        // Disable button during test
-        testButton.disabled = true;
-        testButton.textContent = 'Sending...';
-        resultSpan.textContent = '';
+        // Get notification settings
+        const ntfyUrl = document.getElementById('ntfyUrl').value.trim();
         
-        log('info', 'Sending test notification');
+        if (!ntfyUrl) {
+            throw new Error('Please enter a ntfy.sh URL');
+        }
         
         const response = await fetch('/api/test-notification', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ ntfyConfig })
+            body: JSON.stringify({
+                url: ntfyUrl,
+                priority: document.getElementById('priority').value,
+                username: document.getElementById('ntfyUsername').value.trim(),
+                password: document.getElementById('ntfyPassword').value.trim()
+            })
         });
         
-        const result = await response.json();
+        const data = await response.json();
         
-        if (response.ok && result.success) {
-            log('info', 'Test notification sent successfully', result);
-            resultSpan.textContent = 'Test notification sent successfully!';
-            resultSpan.className = 'test-result test-success';
-            toast.success('Test Sent', 'Notification sent successfully');
+        if (data.success) {
+            testResult.textContent = 'Success! Notification sent.';
+            testResult.className = 'test-result test-success';
+            toast.success('Notification Sent', 'Test notification sent successfully.');
         } else {
-            // Extract the most useful error message
-            let errorMessage = 'Failed to send notification';
-            if (result.details && result.details.error) {
-                errorMessage = result.details.error;
-            } else if (result.message) {
-                errorMessage = result.message;
-            } else if (result.error) {
-                errorMessage = result.error;
-            }
-            
-            throw new Error(errorMessage);
+            const errorMessage = data.error || 'Unknown error';
+            testResult.textContent = `Error: ${errorMessage}`;
+            testResult.className = 'test-result test-error';
+            toast.error('Notification Failed', errorMessage);
         }
     } catch (error) {
-        log('error', 'Error sending test notification:', error);
-        resultSpan.textContent = `Error: ${error.message}`;
-        resultSpan.className = 'test-result test-error';
-        toast.error('Test Failed', error.message);
-    } finally {
-        // Re-enable button
-        testButton.disabled = false;
-        testButton.textContent = 'Test Notification';
+        testResult.textContent = `Error: ${error.message}`;
+        testResult.className = 'test-result test-error';
+        toast.error('Notification Error', error.message);
     }
 }
 
-// Load config when page loads
-document.addEventListener('DOMContentLoaded', () => {
-    log('info', 'Configuration page loaded');
-    loadConfig();
+// Add accordion functionality
+function toggleSection(headerElement) {
+    const section = headerElement.parentElement;
+    const content = section.querySelector('.section-content');
+    const icon = section.querySelector('.section-icon');
     
-    // Add event listener for test notification button
-    document.getElementById('testNotification').addEventListener('click', sendTestNotification);
+    // Check if this section is already open
+    const isOpen = content.classList.contains('open');
+    
+    // First close all sections
+    document.querySelectorAll('.section-content').forEach(el => {
+        el.classList.remove('open');
+    });
+    
+    document.querySelectorAll('.section-icon').forEach(el => {
+        el.classList.remove('open');
+    });
+    
+    // Then open the clicked one if it was closed
+    if (!isOpen) {
+        content.classList.add('open');
+        icon.classList.add('open');
+    }
+}
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    // Open the first section by default
+    const firstSection = document.querySelector('.config-section');
+    if (firstSection) {
+        const header = firstSection.querySelector('.section-header');
+        if (header) {
+            toggleSection(header);
+        }
+    }
+    
+    // Setup test notification button
+    const testBtn = document.getElementById('testNotification');
+    if (testBtn) {
+        testBtn.addEventListener('click', testNotification);
+    }
+    
+    // Load saved configuration
+    loadConfig();
 }); 

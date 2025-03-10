@@ -94,24 +94,34 @@ export class WebInterface {
 
     this.app.post('/api/test-notification', async (req, res) => {
       try {
-        Logger.debug('POST /api/test-notification requested');
-        const { ntfyConfig } = req.body;
+        Logger.info('Test notification requested');
         
-        if (!ntfyConfig || !ntfyConfig.url) {
-          Logger.warn('Invalid ntfy configuration for test notification');
-          return res.status(400).json({ error: 'Invalid ntfy configuration' });
+        const { url, priority, username, password } = req.body;
+        
+        if (!url) {
+          Logger.warn('Invalid ntfy URL for test notification');
+          return res.status(400).json({ success: false, error: 'Please enter a valid ntfy URL' });
         }
         
         // Validate URL format
-        if (!ntfyConfig.url.includes('/')) {
+        if (!url.includes('/')) {
           Logger.warn('Invalid ntfy URL format, must include topic (e.g., https://ntfy.sh/your-topic)');
           return res.status(400).json({ 
-            error: 'Invalid ntfy URL format', 
-            message: 'URL must include topic (e.g., https://ntfy.sh/your-topic)'
+            success: false, 
+            error: 'URL must include topic (e.g., https://ntfy.sh/your-topic)'
           });
         }
         
         // Create a test notification
+        const ntfyConfig = {
+          url,
+          priority: priority || 'default',
+          auth: {
+            username: username || '',
+            password: password || ''
+          }
+        };
+        
         const notifier = new Notifier(ntfyConfig);
         
         // Create a test domain info object
@@ -130,24 +140,20 @@ export class WebInterface {
           Logger.info('Test notification sent successfully', result);
           res.json({ 
             success: true, 
-            message: 'Notification sent successfully',
-            details: result
+            message: 'Notification sent successfully'
           });
         } else {
           Logger.warn('Test notification failed', result);
           res.status(400).json({
             success: false,
-            error: 'Failed to send notification',
-            details: result
+            error: result.error || 'Failed to send notification'
           });
         }
       } catch (error) {
         Logger.error('Error sending test notification:', error);
         res.status(500).json({ 
           success: false,
-          error: 'Failed to send test notification', 
-          message: error.message,
-          stack: error.stack
+          error: error.message || 'Failed to send test notification'
         });
       }
     });
