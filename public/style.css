@@ -311,4 +311,24 @@ input[type="checkbox"] {
     0% { transform: scale(1); }
     50% { transform: scale(1.05); }
     100% { transform: scale(1); }
+}
+
+/* Add these styles to your existing CSS */
+.btn-test {
+    background-color: #9c27b0;
+    color: white;
+    margin-top: 10px;
+}
+
+.test-result {
+    margin-left: 10px;
+    font-style: italic;
+}
+
+.test-success {
+    color: #4CAF50;
+}
+
+.test-error {
+    color: #f44336;
 } 

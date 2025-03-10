@@ -40,6 +40,13 @@ async function loadConfig() {
         // Fill in the form
         document.getElementById('ntfyUrl').value = data.config.ntfy.url;
         document.getElementById('priority').value = data.config.ntfy.priority;
+        
+        // Fill in authentication fields if they exist
+        if (data.config.ntfy.auth) {
+            document.getElementById('ntfyUsername').value = data.config.ntfy.auth.username || '';
+            document.getElementById('ntfyPassword').value = data.config.ntfy.auth.password || '';
+        }
+        
         document.getElementById('checkInterval').value = data.config.checkInterval;
         document.getElementById('warningDays').value = data.config.warningDays;
         document.getElementById('logLevel').value = data.config.logLevel || 'info';
@@ -97,7 +104,11 @@ async function saveConfig() {
     const config = {
         ntfy: {
             url: document.getElementById('ntfyUrl').value,
-            priority: document.getElementById('priority').value
+            priority: document.getElementById('priority').value,
+            auth: {
+                username: document.getElementById('ntfyUsername').value,
+                password: document.getElementById('ntfyPassword').value
+            }
         },
         checkInterval: document.getElementById('checkInterval').value,
         warningDays: parseInt(document.getElementById('warningDays').value),
@@ -143,8 +154,83 @@ async function saveConfig() {
     }
 }
 
+/**
+ * Send a test notification
+ */
+async function sendTestNotification() {
+    const testButton = document.getElementById('testNotification');
+    const resultSpan = document.getElementById('testResult');
+    
+    // Get current notification settings
+    const ntfyConfig = {
+        url: document.getElementById('ntfyUrl').value,
+        priority: document.getElementById('priority').value,
+        auth: {
+            username: document.getElementById('ntfyUsername').value,
+            password: document.getElementById('ntfyPassword').value
+        }
+    };
+    
+    // Validate URL
+    if (!ntfyConfig.url) {
+        resultSpan.textContent = 'Please enter a valid ntfy.sh URL';
+        resultSpan.className = 'test-result test-error';
+        return;
+    }
+    
+    try {
+        // Disable button during test
+        testButton.disabled = true;
+        testButton.textContent = 'Sending...';
+        resultSpan.textContent = '';
+        
+        log('info', 'Sending test notification');
+        
+        const response = await fetch('/api/test-notification', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ntfyConfig })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            log('info', 'Test notification sent successfully', result);
+            resultSpan.textContent = 'Test notification sent successfully!';
+            resultSpan.className = 'test-result test-success';
+            toast.success('Test Sent', 'Notification sent successfully');
+        } else {
+            // Extract the most useful error message
+            let errorMessage = 'Failed to send notification';
+            if (result.details && result.details.error) {
+                errorMessage = result.details.error;
+            } else if (result.message) {
+                errorMessage = result.message;
+            } else if (result.error) {
+                errorMessage = result.error;
+            }
+            
+            throw new Error(errorMessage);
+        }
+    } catch (error) {
+        log('error', 'Error sending test notification:', error);
+        resultSpan.textContent = `Error: ${error.message}`;
+        resultSpan.className = 'test-result test-error';
+        toast.error('Test Failed', error.message);
+    } finally {
+        // Re-enable button
+        testButton.disabled = false;
+        testButton.textContent = 'Test Notification';
+    }
+}
+
 // Load config when page loads
 document.addEventListener('DOMContentLoaded', () => {
     log('info', 'Configuration page loaded');
     loadConfig();
+    
+    // Add event listener for test notification button
+    document.getElementById('testNotification').addEventListener('click', sendTestNotification);
 }); 

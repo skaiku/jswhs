@@ -7,6 +7,7 @@ import { createServer } from 'http';
 import whois from 'whois-json';
 import { Utils } from './utils.js';
 import { Logger } from './logger.js';
+import { Notifier } from './notifier.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -88,6 +89,66 @@ export class WebInterface {
       } catch (error) {
         Logger.error(`Error handling GET /api/domains/${req.params.domain}/whois:`, error);
         res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post('/api/test-notification', async (req, res) => {
+      try {
+        Logger.debug('POST /api/test-notification requested');
+        const { ntfyConfig } = req.body;
+        
+        if (!ntfyConfig || !ntfyConfig.url) {
+          Logger.warn('Invalid ntfy configuration for test notification');
+          return res.status(400).json({ error: 'Invalid ntfy configuration' });
+        }
+        
+        // Validate URL format
+        if (!ntfyConfig.url.includes('/')) {
+          Logger.warn('Invalid ntfy URL format, must include topic (e.g., https://ntfy.sh/your-topic)');
+          return res.status(400).json({ 
+            error: 'Invalid ntfy URL format', 
+            message: 'URL must include topic (e.g., https://ntfy.sh/your-topic)'
+          });
+        }
+        
+        // Create a test notification
+        const notifier = new Notifier(ntfyConfig);
+        
+        // Create a test domain info object
+        const testDomainInfo = {
+          domain: 'example.com',
+          description: 'Test Notification',
+          expirationDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days from now
+          daysUntilExpiration: 15,
+          needsWarning: true
+        };
+        
+        // Send the test notification and get detailed result
+        const result = await notifier.sendNotification(testDomainInfo);
+        
+        if (result.success) {
+          Logger.info('Test notification sent successfully', result);
+          res.json({ 
+            success: true, 
+            message: 'Notification sent successfully',
+            details: result
+          });
+        } else {
+          Logger.warn('Test notification failed', result);
+          res.status(400).json({
+            success: false,
+            error: 'Failed to send notification',
+            details: result
+          });
+        }
+      } catch (error) {
+        Logger.error('Error sending test notification:', error);
+        res.status(500).json({ 
+          success: false,
+          error: 'Failed to send test notification', 
+          message: error.message,
+          stack: error.stack
+        });
       }
     });
     
