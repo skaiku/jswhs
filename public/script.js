@@ -27,7 +27,9 @@ function log(level, message, ...args) {
 }
 
 // Add these variables at the top of the file
-let currentView = 'card'; // Default view
+let currentView = localStorage.getItem('viewType') || 'card'; // Default view, check localStorage first
+let sortColumn = localStorage.getItem('sortColumn') || 'daysUntilExpiration'; // Default sort column
+let sortDirection = localStorage.getItem('sortDirection') || 'asc'; // Default sort direction
 let allDomains = []; // Store all domains
 let searchTimeout = null; // For debouncing search
 
@@ -81,15 +83,7 @@ function updateDashboard(domains) {
     if (domains.length === 0) {
         // If currentView is list, still show headers but with a message below
         if (currentView === 'list') {
-            const headerRow = document.createElement('div');
-            headerRow.className = 'list-header';
-            headerRow.innerHTML = `
-                <div class="header-domain">Domain</div>
-                <div class="header-description">Description</div>
-                <div class="header-expiration">Expiration</div>
-                <div class="header-actions">Actions</div>
-            `;
-            dashboard.appendChild(headerRow);
+            dashboard.appendChild(createListHeaders());
             
             const emptyRow = document.createElement('div');
             emptyRow.className = 'empty-list';
@@ -101,21 +95,119 @@ function updateDashboard(domains) {
         return;
     }
     
-    // Add column headers for list view
+    // Sort domains if in list view
     if (currentView === 'list') {
-        const headerRow = document.createElement('div');
-        headerRow.className = 'list-header';
-        headerRow.innerHTML = `
-            <div class="header-domain">Domain</div>
-            <div class="header-description">Description</div>
-            <div class="header-expiration">Expiration</div>
-            <div class="header-actions">Actions</div>
-        `;
-        dashboard.appendChild(headerRow);
+        domains = sortDomains(domains);
+        dashboard.appendChild(createListHeaders());
     }
     
     domains.forEach(domain => {
         dashboard.appendChild(createDomainCard(domain));
+    });
+}
+
+/**
+ * Create the headers for the list view with sort indicators
+ * @returns {HTMLElement} The header row element
+ */
+function createListHeaders() {
+    const headerRow = document.createElement('div');
+    headerRow.className = 'list-header';
+    
+    // Helper function to create header with sort indicator
+    const createSortableHeader = (column, displayName, sortKey) => {
+        const isSorted = sortColumn === sortKey;
+        const sortIndicator = isSorted 
+            ? (sortDirection === 'asc' ? '↑' : '↓') 
+            : '';
+        
+        return `
+            <div class="header-${column} ${isSorted ? 'sorted' : ''}" data-sort="${sortKey}">
+                ${displayName}
+                <span class="sort-indicator">${sortIndicator}</span>
+            </div>
+        `;
+    };
+    
+    headerRow.innerHTML = `
+        ${createSortableHeader('domain', 'Domain', 'domain')}
+        ${createSortableHeader('description', 'Description', 'description')}
+        ${createSortableHeader('expiration', 'Expiration', 'daysUntilExpiration')}
+        <div class="header-actions">Actions</div>
+    `;
+    
+    // Add click handlers for sortable headers
+    const sortableHeaders = headerRow.querySelectorAll('[data-sort]');
+    sortableHeaders.forEach(header => {
+        header.addEventListener('click', () => {
+            const clickedColumn = header.getAttribute('data-sort');
+            
+            // If clicking the same column, toggle direction
+            if (sortColumn === clickedColumn) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                // New column, default to ascending
+                sortColumn = clickedColumn;
+                sortDirection = 'asc';
+            }
+            
+            // Save sort preferences to localStorage
+            localStorage.setItem('sortColumn', sortColumn);
+            localStorage.setItem('sortDirection', sortDirection);
+            
+            // Refresh the dashboard with new sort
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            const filteredDomains = filterDomains(searchTerm);
+            updateDashboard(filteredDomains);
+        });
+    });
+    
+    return headerRow;
+}
+
+/**
+ * Sort domains based on current sort settings
+ * @param {Array} domains - Domains to sort
+ * @returns {Array} Sorted domains
+ */
+function sortDomains(domains) {
+    return [...domains].sort((a, b) => {
+        let aValue, bValue;
+        
+        // Handle different column types
+        switch (sortColumn) {
+            case 'domain':
+                aValue = a.domain.toLowerCase();
+                bValue = b.domain.toLowerCase();
+                break;
+            case 'description':
+                aValue = (a.description || '').toLowerCase();
+                bValue = (b.description || '').toLowerCase();
+                break;
+            case 'daysUntilExpiration':
+                // Handle error cases - domains with errors go to the end
+                if (a.error && !b.error) return 1;
+                if (!a.error && b.error) return -1;
+                if (a.error && b.error) {
+                    aValue = a.domain.toLowerCase();
+                    bValue = b.domain.toLowerCase();
+                    break;
+                }
+                
+                aValue = a.daysUntilExpiration;
+                bValue = b.daysUntilExpiration;
+                break;
+            default:
+                aValue = a[sortColumn];
+                bValue = b[sortColumn];
+        }
+        
+        // Compare based on direction
+        if (sortDirection === 'asc') {
+            return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+        } else {
+            return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+        }
     });
 }
 
@@ -177,6 +269,9 @@ function toggleView() {
     const viewToggle = document.getElementById('viewToggle');
     
     currentView = currentView === 'card' ? 'list' : 'card';
+    
+    // Save view preference to localStorage
+    localStorage.setItem('viewType', currentView);
     
     // Update dashboard class
     dashboard.className = `dashboard ${currentView}-view`;
@@ -341,9 +436,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('viewToggle').addEventListener('click', toggleView);
     document.getElementById('searchInput').addEventListener('input', handleSearch);
     
-    // Initialize the dashboard with the default view
+    // Initialize the dashboard with the saved view type
     const dashboard = document.getElementById('dashboard');
     dashboard.className = `dashboard ${currentView}-view`;
     
+    // Update toggle button text based on current view
+    const viewToggle = document.getElementById('viewToggle');
+    const spanElement = viewToggle.querySelector('span');
+    if (spanElement) {
+        spanElement.textContent = currentView === 'card' ? 'List View' : 'Card View';
+    }
+    
+    // Load domains with saved sort preferences
     loadDashboard();
 }); 
