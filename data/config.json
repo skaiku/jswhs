@@ -1,0 +1,15 @@
+{
+  "ntfy": {
+    "url": "https://ntfy.sh/domains",
+    "priority": "high",
+    "auth": {
+      "username": "",
+      "password": ""
+    }
+  },
+  "checkInterval": "5 0 * * *",
+  "warningDays": 30,
+  "recalculateAfterSave": true,
+  "useCache": true,
+  "logLevel": "info"
+}

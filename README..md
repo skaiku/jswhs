@@ -120,3 +120,7 @@ To update the application:
      -v "$(pwd)/data/domains.json:/app/domains.json:ro" \
      domain-checker
    ``` 
+
+Domain Checker: A lightweight tool for monitoring domain expiration dates with push notifications. This containerized application tracks your domains, sends alerts when expiration dates approach, and provides a clean web interface for easy management. Built on Node.js with Alpine for minimal image size, it features persistent cache storage, configurable notification thresholds, and scheduled background checks. Perfect for webmasters, IT teams, and domain portfolio managers who never want to miss a renewal again.
+
+Tags: domain-monitoring, expiration-checker, push-notifications, alpine, nodejs 

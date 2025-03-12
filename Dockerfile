@@ -30,7 +30,7 @@ COPY --chown=appuser:appgroup public/ ./public/
 COPY --chown=appuser:appgroup package.json ./
 
 # Create directory for cache with appropriate permissions
-RUN mkdir -p cache && chown -R appuser:appgroup cache
+#RUN mkdir -p cache && chown -R appuser:appgroup cache
 
 # Expose port
 EXPOSE 3000

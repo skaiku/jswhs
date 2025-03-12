@@ -39,9 +39,4 @@ pids
 # Output of 'npm pack'
 *.tgz
 
-# Config files that might contain sensitive data
-config.json
-domains.json
-
-# Cache directory
-cache/ 
+domain-status.json

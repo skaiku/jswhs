@@ -23,6 +23,7 @@ npm-debug.log*
 Dockerfile
 .dockerignore
 docker-compose.yml
+domain-status.json
 
 # Other unnecessary files
 README.md

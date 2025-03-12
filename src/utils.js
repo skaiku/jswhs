@@ -72,7 +72,7 @@ export class Utils {
     const done = Logger.task('Load domain status cache');
     try {
       const data = JSON.parse(
-        await readFile(new URL('../cache/domain-status.json', import.meta.url))
+        await readFile(new URL('../data/cache/domain-status.json', import.meta.url))
       );
       Logger.debug(`Loaded ${data.length} domain status records from cache`);
       done('completed');
@@ -94,7 +94,7 @@ export class Utils {
     try {
       // Ensure cache directory exists
       const fs = await import('fs');
-      const cachePath = join(__dirname, '../cache');
+      const cachePath = join(__dirname, '../data/cache');
       
       if (!fs.existsSync(cachePath)) {
         Logger.debug(`Creating cache directory: ${cachePath}`);
@@ -102,7 +102,7 @@ export class Utils {
       }
       
       await writeFile(
-        new URL('../cache/domain-status.json', import.meta.url),
+        new URL('../data/cache/domain-status.json', import.meta.url),
         JSON.stringify(statusData, null, 2)
       );
       
