@@ -7,10 +7,6 @@ This document explains how to run the Domain Checker application using Docker.
 The easiest way to run the application is using Docker Compose:
 
 ```bash
-# Run the setup script to create necessary directories and copy config files
-./setup-docker.sh
-
-# Start the application
 docker-compose up -d
 ```
 
@@ -46,16 +42,7 @@ docker image build -t domain-checker .
 
 The `-t domain-checker` parameter tags the image with the name "domain-checker".
 
-### Prepare directories and config files
 
-```bash
-# Create data directories
-mkdir -p data/cache
-
-# Copy config files if needed
-cp config.json data/config.json
-cp domains.json data/domains.json
-```
 
 ### Run the container
 
@@ -63,9 +50,7 @@ cp domains.json data/domains.json
 docker run -d \
   --name domain-checker \
   -p 3000:3000 \
-  -v "$(pwd)/data/cache:/app/cache" \
-  -v "$(pwd)/data/config.json:/app/config.json:ro" \
-  -v "$(pwd)/data/domains.json:/app/domains.json:ro" \
+  -v ${PWD}/data:/app/data \
   domain-checker
 ```
 
@@ -79,15 +64,8 @@ These files are mounted as volumes from the `./data` directory, so you can edit 
 
 ## Persistent Storage
 
-The application's cache is stored in a local directory (`./data/cache`) that is mounted to the container's `/app/cache` directory. This allows you to easily access, backup, or manage the cached data directly from your host system.
+The application's cache is stored in a local directory (`./data/cache`) that is mounted to the container's `/app/data/cache` directory. This allows you to easily access, backup, or manage the cached data directly from your host system.
 
-## Image Optimizations
-
-The Docker image has been optimized for minimal size by:
-1. Using the lightweight Alpine-based Node.js image
-2. Implementing a multi-stage build to exclude build tools
-3. Running as a non-root user for improved security
-4. Including only production dependencies
 
 ## Updating the Application
 
@@ -115,12 +93,30 @@ To update the application:
    docker run -d \
      --name domain-checker \
      -p 3000:3000 \
-     -v "$(pwd)/data/cache:/app/cache" \
-     -v "$(pwd)/data/config.json:/app/config.json:ro" \
-     -v "$(pwd)/data/domains.json:/app/domains.json:ro" \
+     -v "$(pwd)/data:/app/data/cache" \
      domain-checker
    ``` 
 
-Domain Checker: A lightweight tool for monitoring domain expiration dates with push notifications. This containerized application tracks your domains, sends alerts when expiration dates approach, and provides a clean web interface for easy management. Built on Node.js with Alpine for minimal image size, it features persistent cache storage, configurable notification thresholds, and scheduled background checks. Perfect for webmasters, IT teams, and domain portfolio managers who never want to miss a renewal again.
+# Using docker hub repository
 
-Tags: domain-monitoring, expiration-checker, push-notifications, alpine, nodejs 
+
+Simply run 
+```
+docker run -d -p 3000:3000 -v ${PWD}/data:/app/data  dytomi/jswhs
+```
+
+Or docker-compose.yaml
+```
+version: '3.8'
+
+services:
+  app:
+    image: dytomi/jswhs
+    container_name: domain-check
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+
+```

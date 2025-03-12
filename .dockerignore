@@ -7,7 +7,7 @@ node_modules
 
 # Cache files
 cache
-data
+
 # IDE files
 .vscode
 

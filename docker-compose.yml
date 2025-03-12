@@ -13,9 +13,7 @@ services:
     volumes:
       # Mount data directories for persistent storage
       - ./data:/app/data
-      # Mount config files for easy updates without rebuilding
-     # - ./data/config.json:/app/config.json
-     # - ./data/domains.json:/app/domains.json
+ 
     healthcheck:
       test: ["CMD", "wget", "--spider", "http://localhost:3000"]
       interval: 1h
