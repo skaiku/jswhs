@@ -6,6 +6,7 @@ class Toast {
         this.container = document.createElement('div');
         this.container.className = 'toast-container';
         document.body.appendChild(this.container);
+        this.activeToasts = new Set();
     }
 
     show(options = {}) {
@@ -44,11 +45,24 @@ class Toast {
         `;
 
         toast.innerHTML = content;
+        
+        // Track this toast in our active toasts set
+        this.activeToasts.add(toast);
 
-        // Add event listener for close button
+        // Add event listener for close button with improved handling
         const closeButton = toast.querySelector('.toast-close');
-        closeButton.addEventListener('click', () => {
+        closeButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             this.dismiss(toast);
+        });
+        
+        // Also add click handler on the entire toast to make it dismissible
+        toast.addEventListener('click', (e) => {
+            // Only dismiss if the click wasn't on an action button
+            if (!e.target.closest('.toast-action')) {
+                this.dismiss(toast);
+            }
         });
 
         // Add to container
@@ -61,7 +75,7 @@ class Toast {
 
         // Auto dismiss
         if (duration > 0) {
-            setTimeout(() => {
+            toast.autoCloseTimer = setTimeout(() => {
                 this.dismiss(toast);
             }, duration);
         }
@@ -70,10 +84,38 @@ class Toast {
     }
 
     dismiss(toast) {
+        // Skip if toast is already being dismissed
+        if (toast.classList.contains('hide')) {
+            return;
+        }
+        
+        // Clear any existing auto close timer
+        if (toast.autoCloseTimer) {
+            clearTimeout(toast.autoCloseTimer);
+            toast.autoCloseTimer = null;
+        }
+        
+        // Mark as hiding
         toast.classList.add('hide');
-        toast.addEventListener('animationend', () => {
-            toast.remove();
-        });
+        
+        // Use both animationend and a timeout as fallback
+        const removeToast = () => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+                this.activeToasts.delete(toast);
+            }
+        };
+        
+        // Set up animation end listener
+        const animationEndHandler = () => {
+            removeToast();
+            toast.removeEventListener('animationend', animationEndHandler);
+        };
+        
+        toast.addEventListener('animationend', animationEndHandler);
+        
+        // Fallback timeout in case the animation event doesn't fire
+        setTimeout(removeToast, 500);
     }
 
     getIconForType(type) {
@@ -127,7 +169,21 @@ class Toast {
     info(message, title = '') {
         return this.show({ type: 'info', message, title });
     }
+    
+    // Method to dismiss all toasts
+    dismissAll() {
+        this.activeToasts.forEach(toast => {
+            this.dismiss(toast);
+        });
+    }
 }
 
 // Initialize toast
-const toast = new Toast(); 
+const toast = new Toast();
+
+// Add global keyboard handler to dismiss toasts with Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        toast.dismissAll();
+    }
+}); 

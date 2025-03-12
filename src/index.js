@@ -216,8 +216,8 @@ async function updateSchedule() {
   console.log('Domain check schedule updated. Running on schedule:', config.checkInterval);
   
   // Schedule daily recalculation at midnight
-  recalculationJob = schedule.scheduleJob('0 0 * * *', recalculateDaysUntilExpiration);
-  console.log('Days until expiration recalculation scheduled daily at midnight');
+  recalculationJob = schedule.scheduleJob(config.checkInterval, recalculateDaysUntilExpiration);
+  console.log('Days until expiration recalculation. Running on schedule:', config.checkInterval);
   
   // Run an immediate check or recalculation after config update
   if (config.recalculateAfterSave) {

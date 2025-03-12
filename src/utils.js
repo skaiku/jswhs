@@ -17,10 +17,10 @@ export class Utils {
     const done = Logger.task('Load configuration');
     try {
       const config = JSON.parse(
-        await readFile(new URL('../config.json', import.meta.url))
+        await readFile(new URL('../data/config.json', import.meta.url))
       );
       const domains = JSON.parse(
-        await readFile(new URL('../domains.json', import.meta.url))
+        await readFile(new URL('../data/domains.json', import.meta.url))
       );
       
       Logger.debug('Configuration loaded successfully');
@@ -45,11 +45,11 @@ export class Utils {
     const done = Logger.task('Save configuration');
     try {
       await writeFile(
-        new URL('../config.json', import.meta.url),
+        new URL('../data/config.json', import.meta.url),
         JSON.stringify(config, null, 2)
       );
       await writeFile(
-        new URL('../domains.json', import.meta.url),
+        new URL('../data/domains.json', import.meta.url),
         JSON.stringify(domains, null, 2)
       );
       

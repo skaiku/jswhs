@@ -1,0 +1,29 @@
+# Version control
+.git
+.gitignore
+
+# Node.js dependencies
+node_modules
+
+# Cache files
+cache
+data
+# IDE files
+.vscode
+
+# Local env files
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Other unnecessary files
+README.md
+LICENSE 

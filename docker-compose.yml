@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  domain-checker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: domain-checker
+    container_name: domain-checker
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount data directories for persistent storage
+      - ./data:/app/data
+      # Mount config files for easy updates without rebuilding
+     # - ./data/config.json:/app/config.json
+     # - ./data/domains.json:/app/domains.json
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000"]
+      interval: 1h
+      timeout: 30s
+      retries: 3
+      start_period: 10s
