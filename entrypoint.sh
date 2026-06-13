@@ -16,5 +16,9 @@ else
     echo "Domains file already exists."
 fi
 
-# Run the main app
-exec "$@"
+# Ensure directory exists and fix permissions
+mkdir -p /app/data
+chown -R appuser:appgroup /app/data
+
+# Run the main app as appuser
+exec su-exec appuser:appgroup "$@"

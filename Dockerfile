@@ -14,7 +14,9 @@ ENV NODE_ENV=production
 
 # Create a non-root user for security
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
+
+# Install su-exec to drop privileges in entrypoint.sh
+RUN apk add --no-cache su-exec
 
 WORKDIR /app
 
