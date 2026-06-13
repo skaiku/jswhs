@@ -32,6 +32,7 @@
  * @property {string} [description] - Optional description of the domain
  * @property {string} [error] - Error message if check failed
  * @property {boolean} [usingManualFallback] - Whether a manual expiration date was used as fallback
+ * @property {string} [nameserver] - Base domain of the nameserver(s)
  */
 
 // Export empty object to make this a proper ES module

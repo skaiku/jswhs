@@ -132,6 +132,7 @@ function createListHeaders() {
     headerRow.innerHTML = `
         ${createSortableHeader('domain', 'Domain', 'domain')}
         ${createSortableHeader('description', 'Description', 'description')}
+        ${createSortableHeader('nameserver', 'Nameserver', 'nameserver')}
         ${createSortableHeader('expiration', 'Expiration', 'daysUntilExpiration')}
         <div class="header-actions">Actions</div>
     `;
@@ -183,6 +184,10 @@ function sortDomains(domains) {
             case 'description':
                 aValue = (a.description || '').toLowerCase();
                 bValue = (b.description || '').toLowerCase();
+                break;
+            case 'nameserver':
+                aValue = (a.nameserver || '').toLowerCase();
+                bValue = (b.nameserver || '').toLowerCase();
                 break;
             case 'daysUntilExpiration':
                 // Handle error cases - domains with errors go to the end
@@ -310,6 +315,7 @@ function createDomainCard(domain) {
                     </div>
                 </div>
                 <p class="description" title="${domain.description || ''}">${domain.description || ''}</p>
+                <p class="nameserver" title="${domain.nameserver || 'N/A'}">${domain.nameserver || 'N/A'}</p>
                 <div class="card-body">
                     <p class="error" title="Error: ${domain.error}">Error: ${domain.error}</p>
                 </div>
@@ -329,6 +335,7 @@ function createDomainCard(domain) {
                 </div>
                 <div class="card-body">
                     <p class="description">${domain.description || ''}</p>
+                    <p class="nameserver-info">Nameserver: ${domain.nameserver || 'N/A'}</p>
                     <p class="error">Error: ${domain.error}</p>
                 </div>
                 <div class="card-actions-grid">
@@ -357,6 +364,7 @@ function createDomainCard(domain) {
                 </div>
             </div>
             <p class="description" title="${domain.description || ''}">${domain.description || ''}</p>
+            <p class="nameserver" title="${domain.nameserver || 'N/A'}">${domain.nameserver || 'N/A'}</p>
             <div class="card-body">
                 <p title="Expires on ${expiryDate}">Expires: ${expiryDate}</p>
                 <p title="${domain.daysUntilExpiration} days until expiration">Days: ${domain.daysUntilExpiration}</p>
@@ -377,6 +385,7 @@ function createDomainCard(domain) {
             </div>
             <div class="card-body">
                 <p class="description">${domain.description || ''}</p>
+                <p>Nameserver: ${domain.nameserver || 'N/A'}</p>
                 <p>Expires: ${expiryDate}</p>
                 <p>Days remaining: ${domain.daysUntilExpiration}</p>
             </div>

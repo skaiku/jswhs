@@ -93,6 +93,14 @@ async function checkDomains() {
       // Add description to the result
       result.description = domainObj.description;
       
+      // Preserve cached nameserver if check failed
+      if (result.error && config.useCache) {
+        const cachedDomain = cachedData.find(item => item.domain === domain);
+        if (cachedDomain && cachedDomain.nameserver) {
+          result.nameserver = cachedDomain.nameserver;
+        }
+      }
+      
       // Add to status results
       statusResults.push(result);
       
@@ -287,6 +295,10 @@ async function updateSchedule() {
           console.log(`❌ Previous error for ${domain}, performing new WHOIS query`);
           result = await checker.checkDomain(domain, domainObj.manualExpirationDate);
           result.description = domainObj.description;
+          
+          if (result.error && cachedDomain && cachedDomain.nameserver) {
+            result.nameserver = cachedDomain.nameserver;
+          }
           
           if (result.needsWarning) {
             await notifier.sendNotification(result);
