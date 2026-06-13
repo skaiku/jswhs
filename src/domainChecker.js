@@ -16,22 +16,44 @@ export class DomainChecker {
   /**
    * Check a domain's expiration status
    * @param {string} domain - Domain name to check
+   * @param {string} [manualExpirationDate] - Optional manual expiration date override/fallback
    * @returns {Promise<import('./interfaces.js').DomainStatus>} Domain status information
    */
-  async checkDomain(domain) {
+  async checkDomain(domain, manualExpirationDate) {
     const done = Logger.task(`Check domain: ${domain}`);
     try {
-      Logger.debug(`Starting WHOIS query for ${domain}`);
-      const result = await whois(domain);
-      
-      // Log the full WHOIS response
-      Logger.debug(`WHOIS Response for ${domain}:`, result);
-      
-      // Try different possible date fields
-      const expirationDate = this.findExpirationDate(result);
+      let expirationDate = null;
+      let usingManualFallback = false;
+      let fetchError = null;
+
+      try {
+        Logger.debug(`Starting WHOIS query for ${domain}`);
+        const result = await whois(domain);
+        
+        // Log the full WHOIS response
+        Logger.debug(`WHOIS Response for ${domain}:`, result);
+        
+        // Try different possible date fields
+        expirationDate = this.findExpirationDate(result);
+      } catch (err) {
+        Logger.warn(`WHOIS query failed for ${domain}: ${err.message}`);
+        fetchError = err;
+      }
+
       if (!expirationDate) {
-        Logger.error(`Could not find expiration date for ${domain}`);
-        throw new Error('Could not find expiration date in WHOIS data');
+        if (manualExpirationDate) {
+          const parsedManualDate = new Date(manualExpirationDate);
+          if (!isNaN(parsedManualDate.getTime())) {
+            Logger.info(`Using manual expiration date fallback for ${domain}: ${manualExpirationDate}`);
+            expirationDate = parsedManualDate;
+            usingManualFallback = true;
+          } else {
+            Logger.error(`Invalid manual expiration date format for ${domain}: ${manualExpirationDate}`);
+            throw new Error(fetchError ? `WHOIS failed (${fetchError.message}) and manual date is invalid` : 'Could not find expiration date in WHOIS data and manual date is invalid');
+          }
+        } else {
+          throw fetchError || new Error('Could not find expiration date in WHOIS data');
+        }
       }
 
       const daysUntilExpiration = this.calculateDaysUntilExpiration(expirationDate);
@@ -42,7 +64,8 @@ export class DomainChecker {
         domain,
         expirationDate,
         daysUntilExpiration,
-        needsWarning: daysUntilExpiration <= this.warningDays
+        needsWarning: daysUntilExpiration <= this.warningDays,
+        usingManualFallback
       };
     } catch (error) {
       Logger.error(`Error checking domain ${domain}:`, error);

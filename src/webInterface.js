@@ -92,6 +92,44 @@ export class WebInterface {
       }
     });
 
+    this.app.post('/api/domains/:domain/manual-expiration', async (req, res) => {
+      try {
+        const domainParam = req.params.domain;
+        const { manualExpirationDate } = req.body;
+        
+        Logger.info(`Setting manual expiration for ${domainParam} to ${manualExpirationDate}`);
+        
+        const { config, domains } = await Utils.loadConfig();
+        
+        const domainEntry = domains.domains.find(
+          d => d.domain.toLowerCase() === domainParam.toLowerCase()
+        );
+        
+        if (!domainEntry) {
+          return res.status(404).json({ success: false, error: 'Domain not found in configuration' });
+        }
+        
+        // Update expiration date (remove it if empty string is passed)
+        if (manualExpirationDate) {
+          domainEntry.manualExpirationDate = manualExpirationDate;
+        } else {
+          delete domainEntry.manualExpirationDate;
+        }
+        
+        await Utils.saveConfig(config, domains);
+        
+        if (this.onConfigUpdate) {
+          Logger.debug('Running onConfigUpdate callback after manual expiration update');
+          await this.onConfigUpdate();
+        }
+        
+        res.json({ success: true });
+      } catch (error) {
+        Logger.error(`Error setting manual expiration for ${req.params.domain}:`, error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     this.app.post('/api/test-notification', async (req, res) => {
       try {
         Logger.info('Test notification requested');

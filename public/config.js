@@ -65,7 +65,6 @@ async function loadConfig() {
         });
         
         log('info', `Loaded configuration with ${data.domains.domains.length} domains`);
-        toast.info('Configuration Loaded', 'Configuration loaded successfully');
     } catch (error) {
         log('error', 'Error loading config:', error);
         toast.error('Loading Error', 'Failed to load configuration');
@@ -75,8 +74,8 @@ async function loadConfig() {
 /**
  * Add a new domain input to the form
  */
-function addDomain(domain = '', description = '') {
-    log('debug', `Adding domain input: ${domain}, ${description}`);
+function addDomain(domain = '', description = '', manualExpirationDate = '') {
+    log('debug', `Adding domain input: ${domain}, ${description}, ${manualExpirationDate}`);
     const domainEntry = document.createElement('div');
     domainEntry.className = 'domain-entry';
     domainEntry.innerHTML = `
@@ -88,7 +87,11 @@ function addDomain(domain = '', description = '') {
             <label>Description</label>
             <input type="text" class="description-input" value="${description}" placeholder="Optional description">
         </div>
-        <button onclick="this.parentElement.remove()" class="btn-remove btn-small">
+        <div class="domain-field">
+            <label>Manual Expiration (Fallback)</label>
+            <input type="date" class="manual-expiration-input" value="${manualExpirationDate}">
+        </div>
+        <button onclick="this.parentElement.remove()" class="btn-remove btn-small" title="Remove domain">
             <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
@@ -101,7 +104,7 @@ function addDomain(domain = '', description = '') {
  * Add a domain object to the list
  */
 function addDomainToList(domainObj) {
-    addDomain(domainObj.domain, domainObj.description);
+    addDomain(domainObj.domain, domainObj.description || '', domainObj.manualExpirationDate || '');
 }
 
 /**
@@ -109,6 +112,43 @@ function addDomainToList(domainObj) {
  */
 async function saveConfig() {
     log('info', 'Saving configuration');
+    
+    // Clear previous input validation errors
+    document.querySelectorAll('.domain-input').forEach(el => el.classList.remove('input-error'));
+    
+    const domainEntries = Array.from(document.getElementsByClassName('domain-entry'));
+    
+    // Check for duplicate domains (case-insensitive)
+    const domainCounts = {};
+    const duplicates = new Set();
+    
+    domainEntries.forEach(entry => {
+        const input = entry.querySelector('.domain-input');
+        const val = input.value.trim().toLowerCase();
+        if (val) {
+            domainCounts[val] = (domainCounts[val] || 0) + 1;
+            if (domainCounts[val] > 1) {
+                duplicates.add(val);
+            }
+        }
+    });
+    
+    if (duplicates.size > 0) {
+        // Highlight duplicate inputs
+        domainEntries.forEach(entry => {
+            const input = entry.querySelector('.domain-input');
+            const val = input.value.trim().toLowerCase();
+            if (duplicates.has(val)) {
+                input.classList.add('input-error');
+            }
+        });
+        
+        const duplicateNames = Array.from(duplicates).join(', ');
+        toast.error('Duplicate Domains Found', `Please remove or edit duplicates: ${duplicateNames}`);
+        log('warn', `Duplicate domains detected: ${duplicateNames}`);
+        return;
+    }
+
     const config = {
         ntfy: {
             url: document.getElementById('ntfyUrl').value,
@@ -126,10 +166,17 @@ async function saveConfig() {
     };
 
     const domains = {
-        domains: Array.from(document.getElementsByClassName('domain-entry')).map(entry => ({
-            domain: entry.querySelector('.domain-input').value.trim(),
-            description: entry.querySelector('.description-input').value.trim()
-        })).filter(d => d.domain !== '')
+        domains: Array.from(document.getElementsByClassName('domain-entry')).map(entry => {
+            const domainVal = entry.querySelector('.domain-input').value.trim();
+            const descVal = entry.querySelector('.description-input').value.trim();
+            const manualDate = entry.querySelector('.manual-expiration-input').value;
+            
+            const item = { domain: domainVal, description: descVal };
+            if (manualDate) {
+                item.manualExpirationDate = manualDate;
+            }
+            return item;
+        }).filter(d => d.domain !== '')
     };
 
     log('debug', `Saving configuration with ${domains.domains.length} domains`);
@@ -160,6 +207,122 @@ async function saveConfig() {
         log('error', 'Error saving config:', error);
         toast.error('Save Error', 'Failed to save configuration');
     }
+}
+
+/**
+ * Show CSV Import Modal
+ */
+function showCSVImportModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'csv-modal-title');
+    
+    modal.innerHTML = `
+        <div class="modal-content glassmorphism" style="max-width: 550px;">
+            <button class="close" aria-label="Close">&times;</button>
+            <h2 id="csv-modal-title">Import Domains from CSV</h2>
+            <p class="modal-subtitle">Paste CSV text below. Format: <code>domain,description,manualDate</code> (one per line, description & date are optional)</p>
+            
+            <div class="modal-form">
+                <div class="form-group">
+                    <textarea id="csvImportArea" class="csv-textarea" placeholder="google.com,Google Search,2027-12-31&#10;example.org,My description&#10;another.com,,2026-06-30"></textarea>
+                </div>
+                
+                <div class="modal-actions">
+                    <button id="importCsvBtn" class="btn-primary">Import</button>
+                    <button id="cancelCsvBtn" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Apply dark mode compatible
+    const theme = localStorage.getItem('theme') || 'light';
+    if (theme === 'dark') {
+        modal.classList.add('dark-mode-compatible');
+    }
+    
+    const closeBtn = modal.querySelector('.close');
+    const cancelBtn = modal.querySelector('#cancelCsvBtn');
+    const importBtn = modal.querySelector('#importCsvBtn');
+    const csvArea = modal.querySelector('#csvImportArea');
+    
+    const closeModal = () => modal.remove();
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    
+    importBtn.onclick = () => {
+        const csvText = csvArea.value.trim();
+        if (!csvText) {
+            toast.error('Validation Error', 'Please paste some CSV data first');
+            return;
+        }
+        
+        // Gather existing domains (case-insensitive) to skip duplicates
+        const existingDomains = new Set(
+            Array.from(document.querySelectorAll('.domain-input'))
+                .map(el => el.value.trim().toLowerCase())
+                .filter(val => val !== '')
+        );
+        
+        const lines = csvText.split('\n');
+        let importCount = 0;
+        let duplicateCount = 0;
+        let skippedInvalid = 0;
+        
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return; // skip empty lines
+            
+            const columns = trimmedLine.split(',');
+            const domain = columns[0] ? columns[0].trim() : '';
+            const description = columns[1] ? columns[1].trim() : '';
+            const manualDate = columns[2] ? columns[2].trim() : '';
+            
+            if (!domain) {
+                skippedInvalid++;
+                return;
+            }
+            
+            const domainLower = domain.toLowerCase();
+            if (existingDomains.has(domainLower)) {
+                duplicateCount++;
+            } else {
+                // Add to list and add to set to avoid duplicates within the imported CSV itself
+                addDomain(domain, description, manualDate);
+                existingDomains.add(domainLower);
+                importCount++;
+            }
+        });
+        
+        closeModal();
+        
+        // Show results toast
+        if (importCount > 0) {
+            let msg = `Successfully imported ${importCount} domain${importCount > 1 ? 's' : ''}.`;
+            if (duplicateCount > 0) {
+                msg += ` Skipped ${duplicateCount} duplicate${duplicateCount > 1 ? 's' : ''}.`;
+            }
+            if (skippedInvalid > 0) {
+                msg += ` Ignored ${skippedInvalid} invalid line${skippedInvalid > 1 ? 's' : ''}.`;
+            }
+            toast.success(msg, 'Import Complete');
+        } else {
+            if (duplicateCount > 0) {
+                toast.warning(`No domains imported. All ${duplicateCount} domains already exist in the list.`, 'Import Skipped');
+            } else {
+                toast.error('No domains imported. Invalid CSV format.', 'Import Failed');
+            }
+        }
+    };
 }
 
 /**

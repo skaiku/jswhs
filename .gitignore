@@ -40,3 +40,4 @@ pids
 *.tgz
 
 domain-status.json
+.cursor

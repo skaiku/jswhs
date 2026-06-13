@@ -87,7 +87,7 @@ async function checkDomains() {
       // If we can't use cache or domain is approaching expiration, do a WHOIS query
       const whoisDone = Logger.task(`WHOIS query for ${domain}`);
       Logger.info(`🔍 Performing WHOIS query for ${domain}...`);
-      result = await checker.checkDomain(domain);
+      result = await checker.checkDomain(domain, domainObj.manualExpirationDate);
       whoisDone('completed');
       
       // Add description to the result
@@ -251,18 +251,30 @@ async function updateSchedule() {
         const cachedDomain = cachedDomainsMap.get(domain);
         
         if (!cachedDomain.error && cachedDomain.expirationDate) {
+          let expirationDateObj = new Date(cachedDomain.expirationDate);
+          let usingManualFallback = cachedDomain.usingManualFallback || false;
+
+          // If manual expiration date is configured and differs from cached date, or if it is manual fallback
+          if (domainObj.manualExpirationDate && usingManualFallback) {
+            const manualDate = new Date(domainObj.manualExpirationDate);
+            if (!isNaN(manualDate.getTime())) {
+              expirationDateObj = manualDate;
+            }
+          }
+
           // Calculate current days until expiration
-          const expirationDate = new Date(cachedDomain.expirationDate);
-          const diffTime = expirationDate - currentDate;
+          const diffTime = expirationDateObj - currentDate;
           const daysUntilExpiration = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           
           console.log(`🔄 Recalculating for existing domain ${domain}: ${daysUntilExpiration} days until expiration`);
           
           result = {
             ...cachedDomain,
+            expirationDate: expirationDateObj,
             daysUntilExpiration,
             needsWarning: daysUntilExpiration <= config.warningDays,
-            description: domainObj.description // Update description from config
+            description: domainObj.description, // Update description from config
+            usingManualFallback
           };
           
           // Check if warning status changed
@@ -273,7 +285,7 @@ async function updateSchedule() {
         } else {
           // Cached domain has error, perform a new WHOIS query
           console.log(`❌ Previous error for ${domain}, performing new WHOIS query`);
-          result = await checker.checkDomain(domain);
+          result = await checker.checkDomain(domain, domainObj.manualExpirationDate);
           result.description = domainObj.description;
           
           if (result.needsWarning) {
@@ -283,7 +295,7 @@ async function updateSchedule() {
       } else {
         // New domain not in cache, perform WHOIS query
         console.log(`🆕 New domain ${domain}, performing WHOIS query`);
-        result = await checker.checkDomain(domain);
+        result = await checker.checkDomain(domain, domainObj.manualExpirationDate);
         result.description = domainObj.description;
         
         if (result.needsWarning) {

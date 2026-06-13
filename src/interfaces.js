@@ -15,6 +15,7 @@
  * @typedef {Object} DomainInfo
  * @property {string} domain - The domain name to check
  * @property {string} [description] - Optional description of the domain
+ * @property {string} [manualExpirationDate] - Optional manual expiration date (YYYY-MM-DD)
  */
 
 /**
@@ -30,6 +31,7 @@
  * @property {boolean} needsWarning - Whether a warning should be shown
  * @property {string} [description] - Optional description of the domain
  * @property {string} [error] - Error message if check failed
+ * @property {boolean} [usingManualFallback] - Whether a manual expiration date was used as fallback
  */
 
 // Export empty object to make this a proper ES module

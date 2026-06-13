@@ -241,7 +241,6 @@ async function loadDashboard(showToasts = true) {
                 toast.warning('Domains Expiring Soon', `${expiringSoon} domain${expiringSoon > 1 ? 's' : ''} will expire soon`);
             } else {
                 log('info', 'All domains in good standing');
-                toast.success('Domains Checked', 'All domains are in good standing');
             }
         }
     } catch (error) {
@@ -302,30 +301,40 @@ function createDomainCard(domain) {
     // Handle error case
     if (domain.error) {
         if (currentView === 'list') {
-            // Compact error display for list view with description column
             card.innerHTML = `
                 <div class="card-header">
                     <h3 title="${domain.domain}">${domain.domain}</h3>
-                    <span class="status-emoji">❌</span>
+                    <div class="header-badges">
+                        <span class="badge badge-error">Failed</span>
+                        <span class="status-emoji">❌</span>
+                    </div>
                 </div>
                 <p class="description" title="${domain.description || ''}">${domain.description || ''}</p>
                 <div class="card-body">
                     <p class="error" title="Error: ${domain.error}">Error: ${domain.error}</p>
                 </div>
-                <button onclick="showDetails('${domain.domain}')" class="btn-details">Details</button>
+                <div class="card-actions">
+                    <button onclick="showManualExpirationModal('${domain.domain}')" class="btn-primary btn-small">Set Expiration</button>
+                    <button onclick="showDetails('${domain.domain}', this)" class="btn-details btn-small">Details</button>
+                </div>
             `;
         } else {
-            // Original card view for errors
             card.innerHTML = `
                 <div class="card-header">
                     <h3>${domain.domain}</h3>
-                    <span class="status-emoji">❌</span>
+                    <div class="header-badges">
+                        <span class="badge badge-error">Failed</span>
+                        <span class="status-emoji">❌</span>
+                    </div>
                 </div>
                 <div class="card-body">
                     <p class="description">${domain.description || ''}</p>
                     <p class="error">Error: ${domain.error}</p>
                 </div>
-                <button onclick="showDetails('${domain.domain}')" class="btn-details">Show Details</button>
+                <div class="card-actions-grid">
+                    <button onclick="showManualExpirationModal('${domain.domain}')" class="btn-primary">Set Expiration</button>
+                    <button onclick="showDetails('${domain.domain}', this)" class="btn-details">Show Details</button>
+                </div>
             `;
         }
         return card;
@@ -333,34 +342,48 @@ function createDomainCard(domain) {
     
     const expiryDate = new Date(domain.expirationDate).toLocaleDateString();
     const statusEmoji = getStatusEmoji(domain.daysUntilExpiration);
+    const badgeHtml = domain.usingManualFallback 
+        ? '<span class="badge badge-manual" title="Using manual expiration date fallback">Manual</span>' 
+        : '<span class="badge badge-live" title="Fetched live via WHOIS">WHOIS</span>';
     
     // Create different layouts based on current view
     if (currentView === 'list') {
-        // More compact structure for list view with description column
         card.innerHTML = `
             <div class="card-header">
                 <h3 title="${domain.domain}">${domain.domain}</h3>
-                <span class="status-emoji">${statusEmoji}</span>
+                <div class="header-badges">
+                    ${badgeHtml}
+                    <span class="status-emoji">${statusEmoji}</span>
+                </div>
             </div>
             <p class="description" title="${domain.description || ''}">${domain.description || ''}</p>
             <div class="card-body">
                 <p title="Expires on ${expiryDate}">Expires: ${expiryDate}</p>
                 <p title="${domain.daysUntilExpiration} days until expiration">Days: ${domain.daysUntilExpiration}</p>
             </div>
-            <button onclick="showDetails('${domain.domain}')" class="btn-details">Details</button>
+            <div class="card-actions">
+                <button onclick="showManualExpirationModal('${domain.domain}', '${domain.expirationDate ? new Date(domain.expirationDate).toISOString().split('T')[0] : ''}')" class="btn-secondary btn-small" title="Edit manual date">Edit Date</button>
+                <button onclick="showDetails('${domain.domain}', this)" class="btn-details btn-small">Details</button>
+            </div>
         `;
     } else {
         card.innerHTML = `
             <div class="card-header">
                 <h3>${domain.domain}</h3>
-                <span class="status-emoji">${statusEmoji}</span>
+                <div class="header-badges">
+                    ${badgeHtml}
+                    <span class="status-emoji">${statusEmoji}</span>
+                </div>
             </div>
             <div class="card-body">
                 <p class="description">${domain.description || ''}</p>
                 <p>Expires: ${expiryDate}</p>
                 <p>Days remaining: ${domain.daysUntilExpiration}</p>
             </div>
-            <button onclick="showDetails('${domain.domain}')" class="btn-details">Show Details</button>
+            <div class="card-actions-grid">
+                <button onclick="showManualExpirationModal('${domain.domain}', '${domain.expirationDate ? new Date(domain.expirationDate).toISOString().split('T')[0] : ''}')" class="btn-secondary" title="Edit manual date">Edit Expiration</button>
+                <button onclick="showDetails('${domain.domain}', this)" class="btn-details">Show Details</button>
+            </div>
         `;
     }
     
@@ -368,14 +391,226 @@ function createDomainCard(domain) {
 }
 
 /**
+ * Find registration date in WHOIS data
+ */
+function findRegistrationDate(whoisData) {
+    if (!whoisData) return null;
+    const regFields = [
+      'creationDate',
+      'createdDate',
+      'created',
+      'registeredOn',
+      'registered',
+      'registrationDate',
+      'registeredDate',
+      'creation'
+    ];
+    for (const field of regFields) {
+        if (whoisData[field]) {
+            const date = new Date(whoisData[field]);
+            if (!isNaN(date.getTime())) {
+                return date;
+            }
+        }
+    }
+    const regRegex = /(creat|regist)/i;
+    for (const field in whoisData) {
+        if (regRegex.test(field) && whoisData[field]) {
+            const date = new Date(whoisData[field]);
+            if (!isNaN(date.getTime())) {
+                return date;
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Show Modal to set/edit manual expiration date
+ */
+async function showManualExpirationModal(domain, currentDate = '') {
+    log('info', `Manual expiration modal requested for: ${domain}`);
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'manual-modal-title');
+    
+    modal.innerHTML = `
+        <div class="modal-content glassmorphism">
+            <button class="close" aria-label="Close">&times;</button>
+            <h2 id="manual-modal-title">Set Expiration Date</h2>
+            <p class="modal-subtitle">Domain: <strong>${domain}</strong></p>
+            
+            <div class="modal-form">
+                <div class="form-group">
+                    <label for="manualDateInput">Expiration Date</label>
+                    <input type="date" id="manualDateInput" value="${currentDate}" class="modal-input">
+                    ${!currentDate ? `<span id="manualDateSuggestionHint" class="suggestion-hint">Checking WHOIS for registration date...</span>` : ''}
+                </div>
+                
+                <div class="modal-actions">
+                    <button id="saveManualDateBtn" class="btn-primary">Save Expiration</button>
+                    ${currentDate ? `<button id="clearManualDateBtn" class="btn-destructive">Reset to WHOIS</button>` : ''}
+                    <button id="cancelManualDateBtn" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Fetch WHOIS in background to suggest expiration date if not already set
+    if (!currentDate) {
+        fetch(`/api/domains/${encodeURIComponent(domain)}/whois`)
+            .then(res => res.json())
+            .then(whoisData => {
+                const regDate = findRegistrationDate(whoisData);
+                if (regDate) {
+                    const currentYear = new Date().getFullYear();
+                    const suggestedDate = new Date(regDate);
+                    suggestedDate.setFullYear(currentYear + 1);
+                    const suggestedStr = suggestedDate.toISOString().split('T')[0];
+                    
+                    const dateInput = modal.querySelector('#manualDateInput');
+                    const hintSpan = modal.querySelector('#manualDateSuggestionHint');
+                    if (dateInput && !dateInput.value) { // only prefill if user hasn't selected a date yet
+                        dateInput.value = suggestedStr;
+                        if (hintSpan) {
+                            hintSpan.textContent = `💡 Suggested date based on registration date (${regDate.toISOString().split('T')[0]})`;
+                            hintSpan.className = 'suggestion-hint suggestion-success';
+                        }
+                    }
+                } else {
+                    const hintSpan = modal.querySelector('#manualDateSuggestionHint');
+                    if (hintSpan) {
+                        hintSpan.textContent = 'No registration date found in WHOIS';
+                        hintSpan.className = 'suggestion-hint suggestion-muted';
+                    }
+                }
+            })
+            .catch(err => {
+                log('warn', 'Failed to fetch WHOIS for manual expiration date suggestion', err);
+                const hintSpan = modal.querySelector('#manualDateSuggestionHint');
+                if (hintSpan) {
+                    hintSpan.textContent = 'Could not retrieve registration date suggestion';
+                    hintSpan.className = 'suggestion-hint suggestion-muted';
+                }
+            });
+    }
+    
+    // Apply current theme
+    const theme = localStorage.getItem('theme') || 'light';
+    if (theme === 'dark') {
+        modal.classList.add('dark-mode-compatible');
+    }
+    
+    const closeBtn = modal.querySelector('.close');
+    const cancelBtn = modal.querySelector('#cancelManualDateBtn');
+    const saveBtn = modal.querySelector('#saveManualDateBtn');
+    const clearBtn = modal.querySelector('#clearManualDateBtn');
+    const dateInput = modal.querySelector('#manualDateInput');
+    
+    const closeModal = () => modal.remove();
+    
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+    
+    // Close on outside click
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+    
+    // Save handler
+    saveBtn.onclick = async () => {
+        const selectedDate = dateInput.value;
+        if (!selectedDate) {
+            toast.error('Validation Error', 'Please select a valid date');
+            return;
+        }
+        
+        try {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            
+            const response = await fetch(`/api/domains/${encodeURIComponent(domain)}/manual-expiration`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ manualExpirationDate: selectedDate })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                toast.success('Saved', `Manual expiration date set for ${domain}`);
+                closeModal();
+                loadDashboard(false); // reload dashboard
+            } else {
+                toast.error('Error', result.error || 'Failed to save date');
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Expiration';
+            }
+        } catch (error) {
+            log('error', 'Failed to save manual expiration date', error);
+            toast.error('Network Error', 'Failed to communicate with server');
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Expiration';
+        }
+    };
+    
+    // Clear handler
+    if (clearBtn) {
+        clearBtn.onclick = async () => {
+            try {
+                clearBtn.disabled = true;
+                clearBtn.textContent = 'Resetting...';
+                
+                const response = await fetch(`/api/domains/${encodeURIComponent(domain)}/manual-expiration`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ manualExpirationDate: '' }) // empty to clear
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    toast.success('Reset Complete', `Expiration check reverted to WHOIS for ${domain}`);
+                    closeModal();
+                    loadDashboard(false); // reload dashboard
+                } else {
+                    toast.error('Error', result.error || 'Failed to reset');
+                    clearBtn.disabled = false;
+                    clearBtn.textContent = 'Reset to WHOIS';
+                }
+            } catch (error) {
+                log('error', 'Failed to reset expiration date', error);
+                toast.error('Network Error', 'Failed to communicate with server');
+                clearBtn.disabled = false;
+                clearBtn.textContent = 'Reset to WHOIS';
+            }
+        };
+    }
+}
+
+/**
  * Show WHOIS details for a domain
  */
-async function showDetails(domain) {
+async function showDetails(domain, btn = null) {
+    let originalText = '';
+    if (btn) {
+        btn.disabled = true;
+        originalText = btn.textContent;
+        btn.textContent = 'Loading...';
+    }
+    
     try {
         log('info', `WHOIS details requested for domain: ${domain}`);
         console.time(`WHOIS query for ${domain}`);
-        
-        toast.info('Loading...', `Fetching WHOIS data for ${domain}`);
         
         const response = await fetch(`/api/domains/${encodeURIComponent(domain)}/whois`);
         const data = await response.json();
@@ -475,6 +710,11 @@ async function showDetails(domain) {
     } catch (error) {
         log('error', `Error loading WHOIS details for ${domain}:`, error);
         toast.error('WHOIS Error', `Failed to load details for ${domain}`);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
     }
 }
 
